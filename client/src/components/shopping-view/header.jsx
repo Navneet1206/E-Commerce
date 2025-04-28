@@ -65,7 +65,7 @@ function MenuItems() {
 }
 
 function HeaderRightContent() {
-  const { user } = useSelector((state) => state.auth);
+  const { user, isAuthenticated } = useSelector((state) => state.auth);
   const { cartItems } = useSelector((state) => state.shopCart);
   const [openCartSheet, setOpenCartSheet] = useState(false);
   const navigate = useNavigate();
@@ -76,12 +76,12 @@ function HeaderRightContent() {
   }
 
   useEffect(() => {
-    dispatch(fetchCartItems(user?.id));
-  }, [dispatch]);
+    if (isAuthenticated && user?.id) {
+      dispatch(fetchCartItems(user?.id));
+    }
+  }, [dispatch, isAuthenticated, user]);
 
-  console.log(cartItems, "sangam");
-
-  return (
+  return isAuthenticated ? (
     <div className="flex lg:items-center lg:flex-row flex-col gap-4">
       <Sheet open={openCartSheet} onOpenChange={() => setOpenCartSheet(false)}>
         <Button
@@ -129,12 +129,15 @@ function HeaderRightContent() {
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
+  ) : (
+    <div className="flex gap-2">
+      <Button onClick={() => navigate("/auth/login")}>Login</Button>
+      <Button onClick={() => navigate("/auth/register")}>Sign Up</Button>
+    </div>
   );
 }
 
 function ShoppingHeader() {
-  const { isAuthenticated } = useSelector((state) => state.auth);
-
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background">
       <div className="flex h-16 items-center justify-between px-4 md:px-6">

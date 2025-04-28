@@ -12,27 +12,33 @@ import { Label } from "../ui/label";
 import StarRatingComponent from "../common/star-rating";
 import { useEffect, useState } from "react";
 import { addReview, getReviews } from "@/store/shop/review-slice";
-import { useNavigate } from "react-router-dom"; // Added for navigation
+import { useNavigate } from "react-router-dom";
 
 function ProductDetailsDialog({ open, setOpen, productDetails }) {
   const [reviewMsg, setReviewMsg] = useState("");
   const [rating, setRating] = useState(0);
   const dispatch = useDispatch();
-  const navigate = useNavigate(); // Added for navigation
-  const { user } = useSelector((state) => state.auth);
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useSelector((state) => state.auth); // Added isAuthenticated
   const { cartItems } = useSelector((state) => state.shopCart);
   const { reviews } = useSelector((state) => state.shopReview);
-
   const { toast } = useToast();
 
   function handleRatingChange(getRating) {
-    console.log(getRating, "getRating");
     setRating(getRating);
   }
 
   function handleAddToCart(getCurrentProductId, getTotalStock) {
-    let getCartItems = cartItems.items || [];
+    if (!isAuthenticated) {
+      toast({
+        title: "Please log in to add products to your cart",
+        variant: "destructive",
+      });
+      navigate("/auth/login");
+      return;
+    }
 
+    let getCartItems = cartItems.items || [];
     if (getCartItems.length) {
       const indexOfCurrentItem = getCartItems.findIndex(
         (item) => item.productId === getCurrentProductId
@@ -48,6 +54,7 @@ function ProductDetailsDialog({ open, setOpen, productDetails }) {
         }
       }
     }
+
     dispatch(
       addToCart({
         userId: user?.id,
@@ -65,8 +72,16 @@ function ProductDetailsDialog({ open, setOpen, productDetails }) {
   }
 
   function handleBuyNow(getCurrentProductId, getTotalStock) {
-    let getCartItems = cartItems.items || [];
+    if (!isAuthenticated) {
+      toast({
+        title: "Please log in to proceed to checkout",
+        variant: "destructive",
+      });
+      navigate("/auth/login");
+      return;
+    }
 
+    let getCartItems = cartItems.items || [];
     if (getCartItems.length) {
       const indexOfCurrentItem = getCartItems.findIndex(
         (item) => item.productId === getCurrentProductId
@@ -82,6 +97,7 @@ function ProductDetailsDialog({ open, setOpen, productDetails }) {
         }
       }
     }
+
     dispatch(
       addToCart({
         userId: user?.id,
@@ -132,8 +148,6 @@ function ProductDetailsDialog({ open, setOpen, productDetails }) {
   useEffect(() => {
     if (productDetails !== null) dispatch(getReviews(productDetails?._id));
   }, [productDetails]);
-
-  console.log(reviews, "reviews");
 
   const averageReview =
     reviews && reviews.length > 0

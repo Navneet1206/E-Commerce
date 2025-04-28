@@ -54,11 +54,8 @@ function ShoppingHome() {
     (state) => state.shopProducts
   );
   const { featureImageList } = useSelector((state) => state.commonFeature);
-
+  const { user, isAuthenticated } = useSelector((state) => state.auth); // Added isAuthenticated
   const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
-
-  const { user } = useSelector((state) => state.auth);
-
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -68,7 +65,6 @@ function ShoppingHome() {
     const currentFilter = {
       [section]: [getCurrentItem.id],
     };
-
     sessionStorage.setItem("filters", JSON.stringify(currentFilter));
     navigate(`/shop/listing`);
   }
@@ -78,6 +74,15 @@ function ShoppingHome() {
   }
 
   function handleAddtoCart(getCurrentProductId, getTotalStock) {
+    if (!isAuthenticated) {
+      toast({
+        title: "Please log in to add products to your cart",
+        variant: "destructive",
+      });
+      navigate("/auth/login");
+      return;
+    }
+
     dispatch(
       addToCart({
         userId: user?.id,
@@ -95,6 +100,15 @@ function ShoppingHome() {
   }
 
   function handleBuyNow(getCurrentProductId, getTotalStock) {
+    if (!isAuthenticated) {
+      toast({
+        title: "Please log in to proceed to checkout",
+        variant: "destructive",
+      });
+      navigate("/auth/login");
+      return;
+    }
+
     dispatch(
       addToCart({
         userId: user?.id,
@@ -122,7 +136,6 @@ function ShoppingHome() {
     const timer = setInterval(() => {
       setCurrentSlide((prevSlide) => (prevSlide + 1) % featureImageList.length);
     }, 15000);
-
     return () => clearInterval(timer);
   }, [featureImageList]);
 
@@ -134,8 +147,6 @@ function ShoppingHome() {
       })
     );
   }, [dispatch]);
-
-  console.log(productList, "productList");
 
   useEffect(() => {
     dispatch(getFeatureImages());
@@ -239,7 +250,7 @@ function ShoppingHome() {
                     handleGetProductDetails={handleGetProductDetails}
                     product={productItem}
                     handleAddtoCart={handleAddtoCart}
-                    handleBuyNow={handleBuyNow} // Added prop
+                    handleBuyNow={handleBuyNow}
                   />
                 ))
               : null}

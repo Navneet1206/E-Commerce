@@ -2,13 +2,44 @@ import { Card, CardContent, CardFooter } from "../ui/card";
 import { Button } from "../ui/button";
 import { brandOptionsMap, categoryOptionsMap } from "@/config";
 import { Badge } from "../ui/badge";
+import { useSelector } from "react-redux"; // Added for isAuthenticated
+import { useNavigate } from "react-router-dom"; // Added for navigation
+import { useToast } from "../ui/use-toast"; // Added for toast
 
 function ShoppingProductTile({
   product,
   handleGetProductDetails,
   handleAddtoCart,
-  handleBuyNow, // Added prop
+  handleBuyNow,
 }) {
+  const { isAuthenticated } = useSelector((state) => state.auth); // Added
+  const navigate = useNavigate(); // Added
+  const { toast } = useToast(); // Added
+
+  const onAddToCart = (productId, totalStock) => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Please log in to add products to your cart",
+        variant: "destructive",
+      });
+      navigate("/auth/login");
+      return;
+    }
+    handleAddtoCart(productId, totalStock);
+  };
+
+  const onBuyNow = (productId, totalStock) => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Please log in to proceed to checkout",
+        variant: "destructive",
+      });
+      navigate("/auth/login");
+      return;
+    }
+    handleBuyNow(productId, totalStock);
+  };
+
   return (
     <Card className="w-full max-w-sm mx-auto">
       <div onClick={() => handleGetProductDetails(product?._id)}>
@@ -66,13 +97,13 @@ function ShoppingProductTile({
         ) : (
           <>
             <Button
-              onClick={() => handleAddtoCart(product?._id, product?.totalStock)}
+              onClick={() => onAddToCart(product?._id, product?.totalStock)}
               className="w-1/2 mr-2"
             >
               Add to Cart
             </Button>
             <Button
-              onClick={() => handleBuyNow(product?._id, product?.totalStock)}
+              onClick={() => onBuyNow(product?._id, product?.totalStock)}
               className="w-1/2 bg-green-600 hover:bg-green-700"
             >
               Buy Now
