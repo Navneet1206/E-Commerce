@@ -47,6 +47,7 @@ const brandsWithIcon = [
   { id: "zara", label: "Zara", icon: Images },
   { id: "h&m", label: "H&M", icon: Heater },
 ];
+
 function ShoppingHome() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const { productList, productDetails } = useSelector(
@@ -76,7 +77,7 @@ function ShoppingHome() {
     dispatch(fetchProductDetails(getCurrentProductId));
   }
 
-  function handleAddtoCart(getCurrentProductId) {
+  function handleAddtoCart(getCurrentProductId, getTotalStock) {
     dispatch(
       addToCart({
         userId: user?.id,
@@ -88,6 +89,26 @@ function ShoppingHome() {
         dispatch(fetchCartItems(user?.id));
         toast({
           title: "Product is added to cart",
+        });
+      }
+    });
+  }
+
+  function handleBuyNow(getCurrentProductId, getTotalStock) {
+    dispatch(
+      addToCart({
+        userId: user?.id,
+        productId: getCurrentProductId,
+        quantity: 1,
+      })
+    ).then((data) => {
+      if (data?.payload?.success) {
+        dispatch(fetchCartItems(user?.id));
+        navigate("/shop/checkout");
+      } else {
+        toast({
+          title: "Failed to add product to cart",
+          variant: "destructive",
         });
       }
     });
@@ -169,6 +190,7 @@ function ShoppingHome() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {categoriesWithIcon.map((categoryItem) => (
               <Card
+                key={categoryItem.id}
                 onClick={() =>
                   handleNavigateToListingPage(categoryItem, "category")
                 }
@@ -190,6 +212,7 @@ function ShoppingHome() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {brandsWithIcon.map((brandItem) => (
               <Card
+                key={brandItem.id}
                 onClick={() => handleNavigateToListingPage(brandItem, "brand")}
                 className="cursor-pointer hover:shadow-lg transition-shadow"
               >
@@ -212,9 +235,11 @@ function ShoppingHome() {
             {productList && productList.length > 0
               ? productList.map((productItem) => (
                   <ShoppingProductTile
+                    key={productItem._id}
                     handleGetProductDetails={handleGetProductDetails}
                     product={productItem}
                     handleAddtoCart={handleAddtoCart}
+                    handleBuyNow={handleBuyNow} // Added prop
                   />
                 ))
               : null}
