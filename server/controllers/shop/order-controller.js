@@ -20,11 +20,19 @@ const createOrder = async (req, res) => {
     } = req.body;
 
     if (paymentMethod === 'razorpay') {
+      console.log('Creating Razorpay order with amount:', totalAmount * 100);
+      if (!totalAmount || totalAmount <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid total amount',
+        });
+      }
       const razorpayOrder = await razorpay.orders.create({
         amount: totalAmount * 100, // Razorpay expects amount in paise
         currency: 'INR',
         receipt: `receipt_${Date.now()}`,
       });
+      console.log('Razorpay order created:', razorpayOrder);
 
       const newlyCreatedOrder = new Order({
         userId,
@@ -78,10 +86,12 @@ const createOrder = async (req, res) => {
       });
     }
   } catch (e) {
-    console.log(e);
+    console.error('Razorpay error details:', e);
     res.status(500).json({
       success: false,
       message: 'Some error occurred!',
+      error: e.message,
+      errorDetails: e,
     });
   }
 };
