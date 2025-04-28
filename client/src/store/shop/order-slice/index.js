@@ -2,13 +2,14 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import axios from "axios";
 
 const initialState = {
-  approvalURL: null,
   isLoading: false,
   orderId: null,
   orderList: [],
   orderDetails: null,
 };
+
 const backendurl = import.meta.env.VITE_API_BASE_URL;
+
 export const createNewOrder = createAsyncThunk(
   "/order/createNewOrder",
   async (orderData) => {
@@ -16,23 +17,17 @@ export const createNewOrder = createAsyncThunk(
       `${backendurl}/api/shop/order/create`,
       orderData
     );
-
     return response.data;
   }
 );
 
-export const capturePayment = createAsyncThunk(
-  "/order/capturePayment",
-  async ({ paymentId, payerId, orderId }) => {
+export const verifyRazorpayPayment = createAsyncThunk(
+  "/order/verifyRazorpayPayment",
+  async (paymentData) => {
     const response = await axios.post(
-      `${backendurl}/api/shop/order/capture`,
-      {
-        paymentId,
-        payerId,
-        orderId,
-      }
+      `${backendurl}/api/shop/order/verify-razorpay`,
+      paymentData
     );
-
     return response.data;
   }
 );
@@ -43,7 +38,6 @@ export const getAllOrdersByUserId = createAsyncThunk(
     const response = await axios.get(
       `${backendurl}/api/shop/order/list/${userId}`
     );
-
     return response.data;
   }
 );
@@ -54,7 +48,6 @@ export const getOrderDetails = createAsyncThunk(
     const response = await axios.get(
       `${backendurl}/api/shop/order/details/${id}`
     );
-
     return response.data;
   }
 );
@@ -74,17 +67,20 @@ const shoppingOrderSlice = createSlice({
       })
       .addCase(createNewOrder.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.approvalURL = action.payload.approvalURL;
         state.orderId = action.payload.orderId;
-        sessionStorage.setItem(
-          "currentOrderId",
-          JSON.stringify(action.payload.orderId)
-        );
       })
       .addCase(createNewOrder.rejected, (state) => {
         state.isLoading = false;
-        state.approvalURL = null;
         state.orderId = null;
+      })
+      .addCase(verifyRazorpayPayment.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(verifyRazorpayPayment.fulfilled, (state) => {
+        state.isLoading = false;
+      })
+      .addCase(verifyRazorpayPayment.rejected, (state) => {
+        state.isLoading = false;
       })
       .addCase(getAllOrdersByUserId.pending, (state) => {
         state.isLoading = true;
@@ -112,5 +108,4 @@ const shoppingOrderSlice = createSlice({
 });
 
 export const { resetOrderDetails } = shoppingOrderSlice.actions;
-
 export default shoppingOrderSlice.reducer;

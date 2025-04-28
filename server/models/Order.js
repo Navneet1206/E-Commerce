@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const OrderSchema = new mongoose.Schema({
   userId: String,
@@ -26,8 +26,11 @@ const OrderSchema = new mongoose.Schema({
   totalAmount: Number,
   orderDate: Date,
   orderUpdateDate: Date,
-  paymentId: String,
+  paymentId: String, 
   payerId: String,
+  razorpayOrderId: String,
+  razorpayPaymentId: String,
+  razorpaySignature: String,
 });
 
-module.exports = mongoose.model("Order", OrderSchema);
+module.exports = mongoose.model('Order', OrderSchema);

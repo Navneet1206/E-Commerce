@@ -1,17 +1,16 @@
-const express = require("express");
-
+const express = require('express');
 const {
   createOrder,
+  verifyRazorpayPayment,
   getAllOrdersByUser,
   getOrderDetails,
-  capturePayment,
-} = require("../../controllers/shop/order-controller");
+} = require('../../controllers/shop/order-controller');
 
 const router = express.Router();
 
-router.post("/create", createOrder);
-router.post("/capture", capturePayment);
-router.get("/list/:userId", getAllOrdersByUser);
-router.get("/details/:id", getOrderDetails);
+router.post('/create', createOrder);
+router.post('/verify-razorpay', verifyRazorpayPayment);
+router.get('/list/:userId', getAllOrdersByUser);
+router.get('/details/:id', getOrderDetails);
 
 module.exports = router;

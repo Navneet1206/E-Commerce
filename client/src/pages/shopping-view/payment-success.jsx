@@ -1,19 +1,15 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 
 function PaymentSuccessPage() {
   const navigate = useNavigate();
 
   return (
-    <Card className="p-10">
-      <CardHeader className="p-0">
-        <CardTitle className="text-4xl">Payment is successfull!</CardTitle>
-      </CardHeader>
-      <Button className="mt-5" onClick={() => navigate("/shop/account")}>
-        View Orders
-      </Button>
-    </Card>
+    <div className="flex flex-col items-center justify-center h-screen">
+      <h1 className="text-2xl font-bold mb-4">Order Placed Successfully!</h1>
+      <p className="mb-4">Thank you for your purchase. You'll receive a confirmation soon.</p>
+      <Button onClick={() => navigate('/shop/home')}>Return to Home</Button>
+    </div>
   );
 }
 
