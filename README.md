@@ -5,6 +5,7 @@
 ```env
 # API Base URL
 VITE_API_BASE_URL=http://localhost:5000
+VITE_RAZORPAY_KEY_ID=rzp_test_
 ```
 
 ---
@@ -29,7 +30,11 @@ CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
 
-# PayPal Configuration
-PAYPAL_CLIENT_ID=AUvo...vA
-PAYPAL_CLIENT_SECRET=EN7L...fO
+
+# Razorpay Configuration
+
+RAZORPAY_KEY_ID=rzp_test_
+RAZORPAY_KEY_SECRET=Zaaa
+
+
 ```
