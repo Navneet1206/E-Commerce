@@ -3,12 +3,14 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 
-export const ShopContext = createContext();
+export const ShopContext = createContext(null);
 
 const ShopContextProvider = (props) => {
   const currency = "₹";
   const delivery_fee = 10;
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000"; // Fallback for safety
+  // Validate backend URL
+  const rawBackendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
+  const backendUrl = rawBackendUrl.endsWith("/") ? rawBackendUrl.slice(0, -1) : rawBackendUrl;
   console.log("Backend URL:", backendUrl); // Debug log
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
@@ -17,6 +19,14 @@ const ShopContextProvider = (props) => {
   const [token, setToken] = useState(localStorage.getItem("token") || "");
   const [isLoading, setIsLoading] = useState(true); // Loading state
   const navigate = useNavigate();
+
+  // Validate URL format
+  try {
+    new URL(backendUrl);
+  } catch (error) {
+    console.error("Invalid backend URL:", backendUrl);
+    toast.error("Invalid backend URL configuration");
+  }
 
   // Fetch products on mount
   const getProductsData = async () => {
@@ -163,14 +173,6 @@ const ShopContextProvider = (props) => {
     }
   }, [token]); // Run when token changes
 
-  // Sync token with localStorage
-  useEffect(() => {
-    const storedToken = localStorage.getItem("token");
-    if (storedToken && !token) {
-      setToken(storedToken);
-    }
-  }, []); // Run once to check localStorage
-
   const value = {
     products,
     currency,
@@ -190,7 +192,7 @@ const ShopContextProvider = (props) => {
     token,
     setToken,
     setProducts,
-    isLoading, // Expose loading state
+    isLoading,
   };
 
   return <ShopContext.Provider value={value}>{props.children}</ShopContext.Provider>;
