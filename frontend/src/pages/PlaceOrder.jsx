@@ -7,6 +7,9 @@ import { toast } from 'react-toastify';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
+// Load Razorpay key from environment variables
+const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID;
+
 const PlaceOrder = () => {
   const navigate = useNavigate();
   const { backendUrl, token, cartItems, setCartItems, getCartAmount, delivery_fee, products } = useContext(ShopContext);
@@ -131,13 +134,16 @@ const PlaceOrder = () => {
           if (!razorpayLoaded || !window.Razorpay) {
             throw new Error('Razorpay payment system not loaded. Please try again.');
           }
+          if (!RAZORPAY_KEY_ID) {
+            throw new Error('Razorpay key is not configured');
+          }
           const responseRazorpay = await axios.post(`${backendUrl}/api/order/razorpay`, orderData, {
             headers: { token }
           });
           if (responseRazorpay.data.success) {
-            const { orderId, keyId } = responseRazorpay.data;
+            const { orderId, amount } = responseRazorpay.data;
             const options = {
-              key: keyId,
+              key: RAZORPAY_KEY_ID, // Use environment variable
               currency: "INR",
               name: "Forever",
               description: "Order Payment",
