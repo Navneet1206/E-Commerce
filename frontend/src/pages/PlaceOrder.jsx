@@ -130,68 +130,67 @@ const PlaceOrder = () => {
           }
           break;
 
-        case 'razorpay':
-          if (!razorpayLoaded || !window.Razorpay) {
-            throw new Error('Razorpay payment system not loaded. Please try again.');
-          }
-          if (!RAZORPAY_KEY_ID) {
-            throw new Error('Razorpay key is not configured');
-          }
-          const responseRazorpay = await axios.post(`${backendUrl}/api/order/razorpay`, orderData, {
-            headers: { token }
-          });
-          if (responseRazorpay.data.success) {
-            const { orderId, amount } = responseRazorpay.data;
-            const options = {
-              key: RAZORPAY_KEY_ID, // Use environment variable
-              currency: "INR",
-              name: "Forever",
-              description: "Order Payment",
-              order_id: orderId,
-              handler: async function (response) {
-                try {
-                  const verificationData = {
-                    razorpayOrderId: response.razorpay_order_id,
-                    razorpayPaymentId: response.razorpay_payment_id,
-                    razorpaySignature: response.razorpay_signature,
-                    userId
-                  };
-                  const verificationResponse = await axios.post(
-                    `${backendUrl}/api/order/verify`,
-                    verificationData,
-                    { headers: { token } }
-                  );
-                  if (verificationResponse.data.success) {
-                    setCartItems({});
-                    toast.success('Payment successful');
-                    navigate('/orders');
-                  } else {
-                    throw new Error(verificationResponse.data.message || 'Payment verification failed');
-                  }
-                } catch (error) {
-                  console.error('Payment verification error:', error);
-                  toast.error(error.message || 'Payment verification failed');
-                }
-              },
-              prefill: {
-                name: `${formData.firstName} ${formData.lastName}`,
-                email: formData.email,
-                contact: formData.phone
-              },
-              theme: {
-                color: "#3399cc"
-              }
-            };
-            const rzp = new window.Razorpay(options);
-            rzp.on('payment.failed', (response) => {
-              toast.error(`Payment failed: ${response.error.description}`);
+          case 'razorpay':
+            if (!razorpayLoaded || !window.Razorpay) {
+              throw new Error('Razorpay payment system not loaded. Please try again.');
+            }
+            if (!RAZORPAY_KEY_ID) {
+              throw new Error('Razorpay key is not configured');
+            }
+            const responseRazorpay = await axios.post(`${backendUrl}/api/order/razorpay`, orderData, {
+              headers: { token }
             });
-            rzp.open();
-          } else {
-            throw new Error(responseRazorpay.data.message || 'Failed to initiate Razorpay payment');
-          }
-          break;
-
+            if (responseRazorpay.data.success) {
+              const { orderId, amount } = responseRazorpay.data;
+              const options = {
+                key: RAZORPAY_KEY_ID,
+                currency: "INR",
+                name: "Forever",
+                description: "Order Payment",
+                order_id: orderId,
+                handler: async function (response) {
+                  try {
+                    const verificationData = {
+                      razorpayOrderId: response.razorpay_order_id,
+                      razorpayPaymentId: response.razorpay_payment_id,
+                      razorpaySignature: response.razorpay_signature,
+                      userId
+                    };
+                    const verificationResponse = await axios.post(
+                      `${backendUrl}/api/order/verify`,
+                      verificationData,
+                      { headers: { token } }
+                    );
+                    if (verificationResponse.data.success) {
+                      setCartItems({});
+                      toast.success('Payment successful');
+                      navigate('/orders');
+                    } else {
+                      throw new Error(verificationResponse.data.message || 'Payment verification failed');
+                    }
+                  } catch (error) {
+                    console.error('Payment verification error:', error);
+                    toast.error(error.message || 'Payment verification failed');
+                  }
+                },
+                prefill: {
+                  name: `${formData.firstName} ${formData.lastName}`,
+                  email: formData.email,
+                  contact: formData.phone
+                },
+                theme: {
+                  color: "#3399cc"
+                }
+              };
+              const rzp = new window.Razorpay(options);
+              rzp.on('payment.failed', (response) => {
+                toast.error(`Payment failed: ${response.error.description}`);
+              });
+              rzp.open();
+            } else {
+              throw new Error(responseRazorpay.data.message || 'Failed to initiate Razorpay payment');
+            }
+            break;
         default:
           throw new Error('Invalid payment method selected');
       }
