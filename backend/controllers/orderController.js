@@ -55,13 +55,18 @@ const placeOrder = async (req, res) => {
   try {
     const { userId, items, amount, address } = req.body;
 
+    if (!userId || !items || !amount || !address) {
+      return res.status(400).json({ success: false, message: "Missing required fields" });
+    }
+
     // Validate stock availability
     const stockCheck = await checkStockAvailability(items);
     if (!stockCheck.isAvailable) {
+      console.log("Stock check failed:", stockCheck.message);
       return res.status(400).json({ success: false, message: stockCheck.message });
     }
 
-    const deliveryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
+    const deliveryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const orderData = {
       userId,
       items,
@@ -134,6 +139,7 @@ const placeOrderRazorpay = async (req, res) => {
     // Validate stock availability
     const stockCheck = await checkStockAvailability(items);
     if (!stockCheck.isAvailable) {
+      console.log("Stock check failed:", stockCheck.message);
       return res.status(400).json({ success: false, message: stockCheck.message });
     }
 

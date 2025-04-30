@@ -11,8 +11,10 @@ const Product = () => {
   const [productData, setProductData] = useState(null);
   const [image, setImage] = useState("");
   const [size, setSize] = useState("");
+  const [quantity, setQuantity] = useState(1); // New state for quantity
   const [showPopup, setShowPopup] = useState(false);
   const [zoomPosition, setZoomPosition] = useState({ x: 0, y: 0 });
+  const [isZoomActive, setIsZoomActive] = useState(false); // New state for zoom activation
   const navigate = useNavigate();
 
   const fetchProductData = () => {
@@ -26,11 +28,32 @@ const Product = () => {
     }
   };
 
+  const handleMouseEnter = () => {
+    setIsZoomActive(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsZoomActive(false);
+  };
+
   const handleMouseMove = (e) => {
+    if (!isZoomActive) return;
     const { left, top, width, height } = e.target.getBoundingClientRect();
     const x = ((e.clientX - left) / width) * 100;
     const y = ((e.clientY - top) / height) * 100;
     setZoomPosition({ x, y });
+  };
+
+  const handleQuantityChange = (e) => {
+    const value = parseInt(e.target.value, 10);
+    if (isNaN(value) || value < 0) {
+      setQuantity(0);
+    } else if (value > productData.stock) {
+      setQuantity(productData.stock);
+      toast.error(`Only ${productData.stock} items available in stock`);
+    } else {
+      setQuantity(value);
+    }
   };
 
   const handleBuyNow = () => {
@@ -43,8 +66,25 @@ const Product = () => {
       toast.error("Select Product Size");
       return;
     }
-    addToCart(productData._id, size);
+    if (quantity <= 0) {
+      toast.error("Select a valid quantity");
+      return;
+    }
+    addToCart(productData._id, size, quantity); // Pass quantity
     navigate('/place-order');
+  };
+
+  const handleAddToCart = () => {
+    if (!size) {
+      toast.error("Select Product Size");
+      return;
+    }
+    if (quantity <= 0) {
+      toast.error("Select a valid quantity");
+      return;
+    }
+    addToCart(productData._id, size, quantity); // Pass quantity
+    toast.success("Added to cart");
   };
 
   useEffect(() => {
@@ -96,9 +136,11 @@ const Product = () => {
               onError={() => setImage(assets.placeholder_image)}
               onClick={() => window.innerWidth < 640 && setShowPopup(true)}
               onMouseMove={handleMouseMove}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
             />
             <div
-              className="hidden sm:block absolute w-24 h-24 border border-gray-400 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+              className={`hidden sm:block absolute w-24 h-24 border border-gray-400 pointer-events-none ${isZoomActive ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}
               style={{
                 left: `${zoomPosition.x}%`,
                 top: `${zoomPosition.y}%`,
@@ -106,7 +148,7 @@ const Product = () => {
               }}
             ></div>
             <div
-              className="hidden sm:block absolute top-0 left-full ml-4 w-96 h-96 bg-white border border-gray-300 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"
+              className={`hidden sm:block absolute top-0 left-full ml-4 w-96 h-96 bg-white border border-gray-300 shadow-lg ${isZoomActive ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300 z-10`}
               style={{
                 backgroundImage: `url(${image || assets.placeholder_image})`,
                 backgroundSize: "300% 300%",
@@ -137,11 +179,23 @@ const Product = () => {
                 </button>
               ))}
             </div>
+            <div className="flex flex-col gap-2">
+              <p className="text-gray-700 font-medium">Select Quantity</p>
+              <input
+                type="number"
+                min="0"
+                max={stock}
+                value={quantity}
+                onChange={handleQuantityChange}
+                className="w-20 py-2 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={stock === 0}
+              />
+            </div>
           </div>
           {stock > 0 ? (
             <div className="flex gap-4">
               <button
-                onClick={() => addToCart(productData._id, size)}
+                onClick={handleAddToCart}
                 className="bg-blue-600 text-white px-4 sm:px-8 py-2 sm:py-3 rounded-md text-xs sm:text-sm hover:bg-blue-700 transition-colors"
                 disabled={isLoading}
               >

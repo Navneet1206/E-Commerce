@@ -15,7 +15,7 @@ const PlaceOrder = () => {
   const [addresses, setAddresses] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [useNewAddress, setUseNewAddress] = useState(false);
-  const [saveAddress, setSaveAddress] = useState(true); // Default to true for first-time users
+  const [saveAddress, setSaveAddress] = useState(true);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -55,14 +55,14 @@ const PlaceOrder = () => {
         if (response.data.success) {
           setAddresses(response.data.addresses);
           if (response.data.addresses.length === 0) {
-            setUseNewAddress(true); // Auto-enable new address form for first-time users
+            setUseNewAddress(true);
           }
         } else {
           toast.error(response.data.message);
         }
       } catch (error) {
         console.error("Error fetching addresses:", error);
-        toast.error(error.message);
+        toast.error(error.response?.data?.message || error.message);
       }
     };
     if (token) {
@@ -93,7 +93,7 @@ const PlaceOrder = () => {
       }
     } catch (error) {
       console.error("Error deleting address:", error);
-      toast.error(error.message);
+      toast.error(error.response?.data?.message || error.message);
     }
   };
 
@@ -214,7 +214,7 @@ const PlaceOrder = () => {
                 throw new Error(verifyResponse.data.message);
               }
             } catch (error) {
-              toast.error(error.message);
+              toast.error(error.response?.data?.message || error.message);
             }
           },
           prefill: {
@@ -231,7 +231,7 @@ const PlaceOrder = () => {
       }
     } catch (error) {
       console.error('Order error:', error);
-      toast.error(error.message || 'Error placing order');
+      toast.error(error.response?.data?.message || error.message || 'Error placing order');
     }
   };
 
