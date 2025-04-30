@@ -21,10 +21,15 @@ const sendOtp = async (req, res) => {
     if (user) {
       return res.json({ success: false, message: "User already exists" });
     }
+    const now = Date.now();
+    const storedData = otpStore.get(email);
+    if (storedData && now - storedData.lastSent < 30000) {
+      return res.json({ success: false, message: "Please wait 30 seconds before requesting another OTP" });
+    }
     const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
-    const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+    const otpExpires = now + 10 * 60 * 1000; // 10 minutes
     await send2StepVerificationEmail(email, otp);
-    otpStore.set(email, { otp, expires: otpExpires });
+    otpStore.set(email, { otp, expires: otpExpires, lastSent: now });
     res.json({ success: true, message: "OTP sent" });
   } catch (error) {
     console.error("Send OTP error:", error);

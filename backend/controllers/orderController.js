@@ -1,5 +1,6 @@
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
+import productModel from "../models/productModel.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import dotenv from "dotenv";
@@ -12,9 +13,54 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
+// Helper function to check stock availability
+const checkStockAvailability = async (items) => {
+  const productQuantities = items.reduce((acc, item) => {
+    acc[item._id] = (acc[item._id] || 0) + item.quantity;
+    return acc;
+  }, {});
+
+  for (const [productId, requestedQuantity] of Object.entries(productQuantities)) {
+    const product = await productModel.findById(productId);
+    if (!product) {
+      return { isAvailable: false, message: `Product with ID ${productId} not found` };
+    }
+    if (product.stock < requestedQuantity) {
+      return {
+        isAvailable: false,
+        message: `Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${requestedQuantity}`,
+      };
+    }
+  }
+  return { isAvailable: true };
+};
+
+// Helper function to decrement stock
+const decrementStock = async (items) => {
+  const productQuantities = items.reduce((acc, item) => {
+    acc[item._id] = (acc[item._id] || 0) + item.quantity;
+    return acc;
+  }, {});
+  for (const [productId, quantity] of Object.entries(productQuantities)) {
+    const product = await productModel.findById(productId);
+    if (product) {
+      product.stock -= quantity;
+      if (product.stock < 0) product.stock = 0;
+      await product.save();
+    }
+  }
+};
+
 const placeOrder = async (req, res) => {
   try {
     const { userId, items, amount, address } = req.body;
+
+    // Validate stock availability
+    const stockCheck = await checkStockAvailability(items);
+    if (!stockCheck.isAvailable) {
+      return res.status(400).json({ success: false, message: stockCheck.message });
+    }
+
     const deliveryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
     const orderData = {
       userId,
@@ -24,10 +70,14 @@ const placeOrder = async (req, res) => {
       paymentMethod: "COD",
       payment: false,
       date: Date.now(),
-      deliveryDate
+      deliveryDate,
+      status: 'Order Placed'
     };
     const newOrder = new orderModel(orderData);
     await newOrder.save();
+
+    // Decrement stock for COD orders
+    await decrementStock(orderData.items);
 
     await userModel.findByIdAndUpdate(userId, { cartData: {} });
 
@@ -79,6 +129,12 @@ const placeOrderRazorpay = async (req, res) => {
     if (typeof amount !== "number" || amount <= 0) {
       console.error("Invalid amount:", amount);
       return res.status(400).json({ success: false, message: "Amount must be a positive number" });
+    }
+
+    // Validate stock availability
+    const stockCheck = await checkStockAvailability(items);
+    if (!stockCheck.isAvailable) {
+      return res.status(400).json({ success: false, message: stockCheck.message });
     }
 
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
@@ -136,6 +192,8 @@ const verifyPayment = async (req, res) => {
       if (!order) {
         return res.status(404).json({ success: false, message: "Order not found" });
       }
+      // Decrement stock after payment verification for Razorpay
+      await decrementStock(order.items);
       await userModel.findByIdAndUpdate(order.userId, { cartData: {} });
 
       // Send confirmation email to user

@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { ShopContext } from '../context/ShopContext';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -12,7 +12,16 @@ const Signup = () => {
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    let timer;
+    if (cooldown > 0) {
+      timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
@@ -26,6 +35,7 @@ const Signup = () => {
         const response = await axios.post(`${backendUrl}/api/user/send-otp`, { email });
         if (response.data.success) {
           setOtpSent(true);
+          setCooldown(30); // Start 30-second cooldown
           toast.success('OTP sent to your email');
         } else {
           toast.error(response.data.message);
@@ -48,13 +58,28 @@ const Signup = () => {
     }
   };
 
+  const handleResendOtp = async () => {
+    if (cooldown > 0) return;
+    try {
+      const response = await axios.post(`${backendUrl}/api/user/send-otp`, { email });
+      if (response.data.success) {
+        setCooldown(30);
+        toast.success('OTP resent');
+      } else {
+        toast.error(response.data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
   return (
     <div className="flex items-center justify-center min-h-[80vh] bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
         <div className="text-2xl mb-6">
           <Title text1={'SIGN'} text2={'UP'} />
         </div>
-        <form onSubmit={onSubmitHandler} className="space-y-6">
+        <div className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700">Name</label>
             <input
@@ -99,15 +124,23 @@ const Signup = () => {
                 placeholder="Enter OTP"
                 required
               />
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={cooldown > 0}
+                className={`mt-2 text-sm ${cooldown > 0 ? 'text-gray-500' : 'text-indigo-600 hover:text-indigo-800'}`}
+              >
+                {cooldown > 0 ? `Resend OTP in ${cooldown}s` : 'Resend OTP'}
+              </button>
             </div>
           )}
           <button
-            type="submit"
+            onClick={onSubmitHandler}
             className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             {otpSent ? 'Verify OTP & Sign Up' : 'Send OTP'}
           </button>
-        </form>
+        </div>
         <p className="mt-4 text-center text-sm text-gray-600">
           Already have an account?{' '}
           <Link to="/login" className="text-indigo-600 hover:text-indigo-800">
