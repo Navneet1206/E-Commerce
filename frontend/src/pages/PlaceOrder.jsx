@@ -7,9 +7,6 @@ import { toast } from 'react-toastify';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-// Load Razorpay key from environment variables
-const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID;
-
 const PlaceOrder = () => {
   const navigate = useNavigate();
   const { backendUrl, token, cartItems, setCartItems, getCartAmount, delivery_fee, products } = useContext(ShopContext);
@@ -28,25 +25,22 @@ const PlaceOrder = () => {
     phone: ''
   });
 
-  // Load Razorpay script dynamically
   useEffect(() => {
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.async = true;
     script.onload = () => {
-      console.log('Razorpay script loaded successfully');
+      console.log('Razorpay script loaded');
       setRazorpayLoaded(true);
     };
     script.onerror = () => {
-      console.error('Failed to load Razorpay script');
-      toast.error('Failed to load Razorpay payment system');
+      console.error('Razorpay script failed to load');
+      toast.error('Failed to load Razorpay');
       setRazorpayLoaded(false);
     };
     document.body.appendChild(script);
     return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
+      document.body.removeChild(script);
     };
   }, []);
 
@@ -58,145 +52,97 @@ const PlaceOrder = () => {
   const onSubmitHandler = async (event) => {
     event.preventDefault();
     try {
-      // Validate backendUrl
-      if (!backendUrl) {
-        throw new Error('Backend URL is not defined');
-      }
-      new URL(backendUrl);
+      if (!backendUrl) throw new Error('Backend URL not defined');
+      if (!token) throw new Error('Please log in first');
 
-      // Validate token
-      if (!token) {
-        throw new Error('User not authenticated. Please log in.');
-      }
-
-      // Validate form data
       const requiredFields = ['firstName', 'lastName', 'email', 'street', 'city', 'state', 'zipcode', 'country', 'phone'];
       for (const field of requiredFields) {
-        if (!formData[field]) {
-          throw new Error(`Please fill in the ${field} field`);
-        }
+        if (!formData[field]) throw new Error(`Please fill ${field}`);
       }
 
-      // Prepare order items
       let orderItems = [];
-      Object.keys(cartItems).forEach((itemId) => {
-        Object.keys(cartItems[itemId]).forEach((size) => {
+      for (const itemId in cartItems) {
+        for (const size in cartItems[itemId]) {
           if (cartItems[itemId][size] > 0) {
             const itemInfo = structuredClone(products.find((product) => product._id === itemId));
             if (itemInfo) {
               itemInfo.size = size;
               itemInfo.quantity = cartItems[itemId][size];
               orderItems.push(itemInfo);
-            } else {
-              console.warn(`Product with ID ${itemId} not found`);
             }
           }
-        });
-      });
-
-      if (orderItems.length === 0) {
-        throw new Error('Cart is empty');
+        }
       }
 
-      // Extract userId from token
-      let userId;
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        userId = payload.id;
-      } catch (error) {
-        throw new Error('Invalid token format');
-      }
+      if (orderItems.length === 0) throw new Error('Cart is empty');
 
       const orderData = {
         address: formData,
         items: orderItems,
         amount: getCartAmount() + delivery_fee,
-        userId
+        userId: JSON.parse(atob(token.split('.')[1])).id,
       };
 
-      console.log('Order Data:', orderData); // Debug log
+      console.log('Sending order data:', orderData);
 
-      switch (method) {
-        case 'cod':
-          const response = await axios.post(`${backendUrl}/api/order/place`, orderData, {
-            headers: { token }
-          });
-          if (response.data.success) {
-            setCartItems({});
-            toast.success('Order placed successfully');
-            navigate('/orders');
-          } else {
-            throw new Error(response.data.message || 'Failed to place order');
-          }
-          break;
+      if (method === 'cod') {
+        const response = await axios.post(`${backendUrl}/api/order/place`, orderData, { headers: { token } });
+        if (response.data.success) {
+          setCartItems({});
+          toast.success('Order placed');
+          navigate('/orders');
+        } else {
+          throw new Error(response.data.message);
+        }
+      } else if (method === 'razorpay') {
+        if (!razorpayLoaded || !window.Razorpay) throw new Error('Razorpay not loaded');
 
-          case 'razorpay':
-            if (!razorpayLoaded || !window.Razorpay) {
-              throw new Error('Razorpay payment system not loaded. Please try again.');
-            }
-            if (!RAZORPAY_KEY_ID) {
-              throw new Error('Razorpay key is not configured');
-            }
-            const responseRazorpay = await axios.post(`${backendUrl}/api/order/razorpay`, orderData, {
-              headers: { token }
-            });
-            if (responseRazorpay.data.success) {
-              const { orderId, amount } = responseRazorpay.data;
-              const options = {
-                key: RAZORPAY_KEY_ID,
-                currency: "INR",
-                name: "Forever",
-                description: "Order Payment",
-                order_id: orderId,
-                handler: async function (response) {
-                  try {
-                    const verificationData = {
-                      razorpayOrderId: response.razorpay_order_id,
-                      razorpayPaymentId: response.razorpay_payment_id,
-                      razorpaySignature: response.razorpay_signature,
-                      userId
-                    };
-                    const verificationResponse = await axios.post(
-                      `${backendUrl}/api/order/verify`,
-                      verificationData,
-                      { headers: { token } }
-                    );
-                    if (verificationResponse.data.success) {
-                      setCartItems({});
-                      toast.success('Payment successful');
-                      navigate('/orders');
-                    } else {
-                      throw new Error(verificationResponse.data.message || 'Payment verification failed');
-                    }
-                  } catch (error) {
-                    console.error('Payment verification error:', error);
-                    toast.error(error.message || 'Payment verification failed');
-                  }
-                },
-                prefill: {
-                  name: `${formData.firstName} ${formData.lastName}`,
-                  email: formData.email,
-                  contact: formData.phone
-                },
-                theme: {
-                  color: "#3399cc"
-                }
+        const response = await axios.post(`${backendUrl}/api/order/razorpay`, orderData, { headers: { token } });
+        if (!response.data.success) throw new Error(response.data.message);
+
+        const { orderId, keyId } = response.data;
+        const options = {
+          key: keyId,
+          amount: (orderData.amount * 100).toString(),
+          currency: "INR",
+          name: "Forever",
+          description: "Order Payment",
+          order_id: orderId,
+          handler: async (response) => {
+            try {
+              const verificationData = {
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+                userId: orderData.userId,
               };
-              const rzp = new window.Razorpay(options);
-              rzp.on('payment.failed', (response) => {
-                toast.error(`Payment failed: ${response.error.description}`);
-              });
-              rzp.open();
-            } else {
-              throw new Error(responseRazorpay.data.message || 'Failed to initiate Razorpay payment');
+              const verifyResponse = await axios.post(`${backendUrl}/api/order/verify`, verificationData, { headers: { token } });
+              if (verifyResponse.data.success) {
+                setCartItems({});
+                toast.success('Payment successful');
+                navigate('/orders');
+              } else {
+                throw new Error(verifyResponse.data.message);
+              }
+            } catch (error) {
+              toast.error(error.message);
             }
-            break;
-        default:
-          throw new Error('Invalid payment method selected');
+          },
+          prefill: {
+            name: `${formData.firstName} ${formData.lastName}`,
+            email: formData.email,
+            contact: formData.phone,
+          },
+          theme: { color: "#3399cc" },
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.on('payment.failed', (response) => toast.error(response.error.description));
+        rzp.open();
       }
     } catch (error) {
-      console.error('Place order error:', error);
-      toast.error(error.message || 'An error occurred while placing the order');
+      console.error('Order error:', error);
+      toast.error(error.message || 'Error placing order');
     }
   };
 
@@ -207,92 +153,20 @@ const PlaceOrder = () => {
           <Title text1={'DELIVERY'} text2={'INFORMATION'} />
         </div>
         <div className='flex gap-3'>
-          <input
-            required
-            onChange={onChangeHandler}
-            name='firstName'
-            value={formData.firstName}
-            className='border border-gray-300 rounded py-1.5 px-3.5 w-full'
-            type="text"
-            placeholder='First name'
-          />
-          <input
-            required
-            onChange={onChangeHandler}
-            name='lastName'
-            value={formData.lastName}
-            className='border border-gray-300 rounded py-1.5 px-3.5 w-full'
-            type="text"
-            placeholder='Last name'
-          />
+          <input required onChange={onChangeHandler} name='firstName' value={formData.firstName} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='First name' />
+          <input required onChange={onChangeHandler} name='lastName' value={formData.lastName} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='Last name' />
         </div>
-        <input
-          required
-          onChange={onChangeHandler}
-          name='email'
-          value={formData.email}
-          className='border border-gray-300 rounded py-1.5 px-3.5 w-full'
-          type="email"
-          placeholder='Email address'
-        />
-        <input
-          required
-          onChange={onChangeHandler}
-          name='street'
-          value={formData.street}
-          className='border border-gray-300 rounded py-1.5 px-3.5 w-full'
-          type="text"
-          placeholder='Street'
-        />
+        <input required onChange={onChangeHandler} name='email' value={formData.email} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="email" placeholder='Email address' />
+        <input required onChange={onChangeHandler} name='street' value={formData.street} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='Street' />
         <div className='flex gap-3'>
-          <input
-            required
-            onChange={onChangeHandler}
-            name='city'
-            value={formData.city}
-            className='border border-gray-300 rounded py-1.5 px-3.5 w-full'
-            type="text"
-            placeholder='City'
-          />
-          <input
-            required
-            onChange={onChangeHandler}
-            name='state'
-            value={formData.state}
-            className='border border-gray-300 rounded py-1.5 px-3.5 w-full'
-            type="text"
-            placeholder='State'
-          />
+          <input required onChange={onChangeHandler} name='city' value={formData.city} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='City' />
+          <input required onChange={onChangeHandler} name='state' value={formData.state} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='State' />
         </div>
         <div className='flex gap-3'>
-          <input
-            required
-            onChange={onChangeHandler}
-            name='zipcode'
-            value={formData.zipcode}
-            className='border border-gray-300 rounded py-1.5 px-3.5 w-full'
-            type="number"
-            placeholder='Zipcode'
-          />
-          <input
-            required
-            onChange={onChangeHandler}
-            name='country'
-            value={formData.country}
-            className='border border-gray-300 rounded py-1.5 px-3.5 w-full'
-            type="text"
-            placeholder='Country'
-          />
+          <input required onChange={onChangeHandler} name='zipcode' value={formData.zipcode} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="number" placeholder='Zipcode' />
+          <input required onChange={onChangeHandler} name='country' value={formData.country} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='Country' />
         </div>
-        <input
-          required
-          onChange={onChangeHandler}
-          name='phone'
-          value={formData.phone}
-          className='border border-gray-300 rounded py-1.5 px-3.5 w-full'
-          type="number"
-          placeholder='Phone'
-        />
+        <input required onChange={onChangeHandler} name='phone' value={formData.phone} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="number" placeholder='Phone' />
       </div>
       <div className='mt-8'>
         <div className='mt-8 min-w-80'>
@@ -303,7 +177,7 @@ const PlaceOrder = () => {
           <div className='flex gap-3 flex-col lg:flex-row'>
             <div onClick={() => setMethod('razorpay')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
               <p className={`min-w-3.5 h-3.5 border rounded-full ${method === 'razorpay' ? 'bg-green-400' : ''}`}></p>
-              <img className={`h-5 mx-4`} src={assets.razorpay_logo} alt="Razorpay" />
+              <img className='h-5 mx-4' src={assets.razorpay_logo} alt="Razorpay" />
             </div>
             <div onClick={() => setMethod('cod')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
               <p className={`min-w-3.5 h-3.5 border rounded-full ${method === 'cod' ? 'bg-green-400' : ''}`}></p>
