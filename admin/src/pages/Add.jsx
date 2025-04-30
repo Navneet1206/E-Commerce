@@ -14,14 +14,19 @@ const Add = ({ token }) => {
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState("Men");
-  const [subCategory, setSubCategory] = useState("Topwear"); // Fixed typo: setSubCategoy -> setSubCategory
+  const [subCategory, setSubCategory] = useState("Topwear");
   const [bestseller, setBestseller] = useState(false);
   const [sizes, setSizes] = useState([]);
-  const [stock, setStock] = useState(0); // Added stock state
+  const [stock, setStock] = useState(0);
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
     try {
+      if (!token) {
+        toast.error("Authentication token missing. Please log in again.");
+        return;
+      }
+
       const formData = new FormData();
       formData.append("name", name);
       formData.append("description", description);
@@ -30,14 +35,14 @@ const Add = ({ token }) => {
       formData.append("subCategory", subCategory);
       formData.append("bestseller", bestseller);
       formData.append("sizes", JSON.stringify(sizes));
-      formData.append("stock", stock); // Added stock to formData
+      formData.append("stock", stock);
 
       image1 && formData.append("image1", image1);
       image2 && formData.append("image2", image2);
       image3 && formData.append("image3", image3);
       image4 && formData.append("image4", image4);
 
-      const response = await axios.post(backendUrl + "api/product/add", formData, { headers: { token } });
+      const response = await axios.post(`${backendUrl}api/product/add`, formData, { headers: { token } });
       if (response.data.success) {
         toast.success(response.data.message);
         setName('');
@@ -47,25 +52,28 @@ const Add = ({ token }) => {
         setImage2(false);
         setImage3(false);
         setImage4(false);
-        setStock(0); // Reset stock
+        setStock(0);
         setSizes([]);
         setBestseller(false);
       } else {
         toast.error(response.data.message);
       }
     } catch (error) {
-      console.log(error);
-      toast.error(error.message);
+      console.error("Error adding product:", error);
+      if (error.response?.status === 401) {
+        toast.error("Invalid or expired token. Please log in again.");
+      } else {
+        toast.error(error.message);
+      }
     }
   };
 
   return (
     <form onSubmit={onSubmitHandler} className="flex flex-col w-full items-start gap-4 p-6 bg-white rounded-lg shadow-md">
-      {/* Image Uploads */}
       <div className="grid grid-cols-2 gap-6">
         <label htmlFor="image1" className="flex flex-col items-center">
           <img className="w-24 h-24 object-cover rounded-md border border-gray-300" src={!image1 ? assets.upload_area : URL.createObjectURL(image1)} alt="Upload 1" />
-          <input onChange={(e) => setImage1(e.target.files[0])} type="file" id="image1" className="mt-2" />
+          <input onChange={(e) => setImage1(e.target.files[0])} type="file" id="image1" className="mt-2" required />
         </label>
         <label htmlFor="image2" className="flex flex-col items-center">
           <img className="w-24 h-24 object-cover rounded-md border border-gray-300" src={!image2 ? assets.upload_area : URL.createObjectURL(image2)} alt="Upload 2" />
@@ -81,7 +89,6 @@ const Add = ({ token }) => {
         </label>
       </div>
 
-      {/* Product Name */}
       <div className="w-full">
         <p className="mb-2 text-gray-700 font-medium">Product Name</p>
         <input
@@ -94,7 +101,6 @@ const Add = ({ token }) => {
         />
       </div>
 
-      {/* Product Description */}
       <div className="w-full">
         <p className="mb-2 text-gray-700 font-medium">Product Description</p>
         <textarea
@@ -106,7 +112,6 @@ const Add = ({ token }) => {
         />
       </div>
 
-      {/* Category, Subcategory, Price, Stock */}
       <div className="flex flex-col sm:flex-row gap-4 w-full">
         <div className="w-full sm:w-1/4">
           <p className="mb-2 text-gray-700 font-medium">Product Category</p>
@@ -114,6 +119,7 @@ const Add = ({ token }) => {
             onChange={(e) => setCategory(e.target.value)}
             value={category}
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required
           >
             <option value="Men">Men</option>
             <option value="Women">Women</option>
@@ -126,6 +132,7 @@ const Add = ({ token }) => {
             onChange={(e) => setSubCategory(e.target.value)}
             value={subCategory}
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required
           >
             <option value="Topwear">Topwear</option>
             <option value="Bottomwear">Bottomwear</option>
@@ -140,6 +147,7 @@ const Add = ({ token }) => {
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             type="number"
             placeholder="25"
+            min="0"
             required
           />
         </div>
@@ -151,12 +159,12 @@ const Add = ({ token }) => {
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             type="number"
             placeholder="0"
+            min="0"
             required
           />
         </div>
       </div>
 
-      {/* Product Sizes */}
       <div className="w-full">
         <p className="mb-2 text-gray-700 font-medium">Product Sizes</p>
         <div className="flex gap-3">
@@ -172,7 +180,6 @@ const Add = ({ token }) => {
         </div>
       </div>
 
-      {/* Bestseller Checkbox */}
       <div className="flex items-center gap-2 mt-2">
         <input
           onChange={() => setBestseller((prev) => !prev)}
@@ -184,8 +191,7 @@ const Add = ({ token }) => {
         <label htmlFor="bestseller" className="text-gray-700 cursor-pointer">Add to Bestseller</label>
       </div>
 
-      {/* Submit Button */}
-      <button className="mt-6 px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+      <button type="submit" className="mt-6 px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
         ADD PRODUCT
       </button>
     </form>

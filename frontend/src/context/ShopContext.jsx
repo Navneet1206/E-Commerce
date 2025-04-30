@@ -8,19 +8,17 @@ export const ShopContext = createContext(null);
 const ShopContextProvider = (props) => {
   const currency = "₹";
   const delivery_fee = 10;
-  // Validate backend URL
   const rawBackendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
   const backendUrl = rawBackendUrl.endsWith("/") ? rawBackendUrl.slice(0, -1) : rawBackendUrl;
-  console.log("Backend URL:", backendUrl); // Debug log
+  console.log("Backend URL:", backendUrl);
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
-  const [cartItems, setCartItems] = useState({}); // Initialize as object
+  const [cartItems, setCartItems] = useState({});
   const [products, setProducts] = useState([]);
   const [token, setToken] = useState(localStorage.getItem("token") || "");
-  const [isLoading, setIsLoading] = useState(true); // Loading state
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Validate URL format
   try {
     new URL(backendUrl);
   } catch (error) {
@@ -28,7 +26,6 @@ const ShopContextProvider = (props) => {
     toast.error("Invalid backend URL configuration");
   }
 
-  // Fetch products on mount
   const getProductsData = async () => {
     try {
       setIsLoading(true);
@@ -46,7 +43,6 @@ const ShopContextProvider = (props) => {
     }
   };
 
-  // Fetch user cart if token exists
   const getUserCart = async (userToken) => {
     try {
       const response = await axios.post(
@@ -55,7 +51,7 @@ const ShopContextProvider = (props) => {
         { headers: { token: userToken } }
       );
       if (response.data.success) {
-        setCartItems(response.data.cartData || {});
+        setCartItems(response.data.message || {});
       } else {
         toast.error(response.data.message);
       }
@@ -65,17 +61,21 @@ const ShopContextProvider = (props) => {
     }
   };
 
-  // Add to cart
   const addToCart = async (itemId, size) => {
     if (!size) {
       toast.error("Select Product Size");
       return;
     }
 
-    // Ensure product exists
     const product = products.find((p) => p._id === itemId);
     if (!product) {
       toast.error("Product not found");
+      return;
+    }
+
+    const currentTotal = Object.values(cartItems[itemId] || {}).reduce((acc, qty) => acc + qty, 0);
+    if (currentTotal + 1 > product.stock) {
+      toast.error("Not enough stock available");
       return;
     }
 
@@ -87,8 +87,7 @@ const ShopContextProvider = (props) => {
         cartData[itemId][size] = 1;
       }
     } else {
-      cartData[itemId] = {};
-      cartData[itemId][size] = 1;
+      cartData[itemId] = { [size]: 1 };
     }
     setCartItems(cartData);
 
@@ -106,7 +105,6 @@ const ShopContextProvider = (props) => {
     }
   };
 
-  // Get cart item count
   const getCartCount = () => {
     let totalCount = 0;
     for (const items in cartItems) {
@@ -123,10 +121,35 @@ const ShopContextProvider = (props) => {
     return totalCount;
   };
 
-  // Update cart quantity
   const updateQuantity = async (itemId, size, quantity) => {
+    const product = products.find((p) => p._id === itemId);
+    if (!product) {
+      toast.error("Product not found");
+      return;
+    }
+
     let cartData = structuredClone(cartItems);
+    let total = 0;
+    for (const s in cartData[itemId] || {}) {
+      if (s === size) {
+        total += quantity;
+      } else {
+        total += cartData[itemId][s];
+      }
+    }
+    if (total > product.stock) {
+      toast.error("Not enough stock available");
+      return;
+    }
+
+    cartData[itemId] = cartData[itemId] || {};
     cartData[itemId][size] = quantity;
+    if (quantity <= 0) {
+      delete cartData[itemId][size];
+      if (Object.keys(cartData[itemId]).length === 0) {
+        delete cartData[itemId];
+      }
+    }
     setCartItems(cartData);
 
     if (token) {
@@ -143,12 +166,11 @@ const ShopContextProvider = (props) => {
     }
   };
 
-  // Calculate cart total amount
   const getCartAmount = () => {
     let totalAmount = 0;
     for (const items in cartItems) {
       let itemInfo = products.find((product) => product._id === items);
-      if (!itemInfo) continue; // Skip if product not found
+      if (!itemInfo) continue;
       for (const item in cartItems[items]) {
         try {
           if (cartItems[items][item] > 0) {
@@ -162,16 +184,15 @@ const ShopContextProvider = (props) => {
     return totalAmount;
   };
 
-  // Initialize products and cart
   useEffect(() => {
     getProductsData();
-  }, []); // Run once on mount
+  }, []);
 
   useEffect(() => {
     if (token) {
       getUserCart(token);
     }
-  }, [token]); // Run when token changes
+  }, [token]);
 
   const value = {
     products,

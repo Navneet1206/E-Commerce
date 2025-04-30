@@ -10,11 +10,10 @@ const createToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "1h" });
 };
 
-// Route for user login
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log("User login attempt:", { email }); // Debug
+    console.log("User login attempt:", { email });
     const user = await userModel.findOne({ email });
     if (!user) {
       return res.json({ success: false, message: "User doesn't exist" });
@@ -31,7 +30,6 @@ const loginUser = async (req, res) => {
   }
 };
 
-// Route for user register
 const registerUser = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -52,7 +50,7 @@ const registerUser = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      role: "user", // Default role for new users
+      role: "user",
     });
     const user = await newUser.save();
     const token = createToken(user._id, user.role);
@@ -63,11 +61,10 @@ const registerUser = async (req, res) => {
   }
 };
 
-// Route for admin login
 const adminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log("Admin login attempt:", { email }); // Debug
+    console.log("Admin login attempt:", { email });
     const user = await userModel.findOne({ email });
     if (!user) {
       return res.json({ success: false, message: "User doesn't exist" });
@@ -87,4 +84,69 @@ const adminLogin = async (req, res) => {
   }
 };
 
-export { loginUser, registerUser, adminLogin };
+const addAddress = async (req, res) => {
+  try {
+    const { address } = req.body;
+    const user = await userModel.findById(req.body.userId);
+    if (!user) {
+      return res.json({ success: false, message: "User not found" });
+    }
+    user.addresses.push(address);
+    await user.save();
+    res.json({ success: true, message: "Address added" });
+  } catch (error) {
+    console.error("Add address error:", error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+const updateAddress = async (req, res) => {
+  try {
+    const { addressId, address } = req.body;
+    const user = await userModel.findById(req.body.userId);
+    if (!user) {
+      return res.json({ success: false, message: "User not found" });
+    }
+    const addrIndex = user.addresses.findIndex((addr) => addr._id.toString() === addressId);
+    if (addrIndex === -1) {
+      return res.json({ success: false, message: "Address not found" });
+    }
+    user.addresses[addrIndex] = address;
+    await user.save();
+    res.json({ success: true, message: "Address updated" });
+  } catch (error) {
+    console.error("Update address error:", error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+const deleteAddress = async (req, res) => {
+  try {
+    const { addressId } = req.body;
+    const user = await userModel.findById(req.body.userId);
+    if (!user) {
+      return res.json({ success: false, message: "User not found" });
+    }
+    user.addresses = user.addresses.filter((addr) => addr._id.toString() !== addressId);
+    await user.save();
+    res.json({ success: true, message: "Address deleted" });
+  } catch (error) {
+    console.error("Delete address error:", error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+const getAddresses = async (req, res) => {
+  try {
+    const user = await userModel.findById(req.body.userId);
+    if (!user) {
+      return res.json({ success: false, message: "User not found" });
+    }
+    res.json({ success: true, addresses: user.addresses });
+  } catch (error) {
+    console.error("Get addresses error:", error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+export { loginUser, registerUser, adminLogin, addAddress, updateAddress, deleteAddress, getAddresses };

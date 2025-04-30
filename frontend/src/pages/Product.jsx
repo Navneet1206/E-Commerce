@@ -1,25 +1,41 @@
 import React, { useContext, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { ShopContext } from "../context/ShopContext";
 import { assets } from "../assets/assets";
 import RelatedProducts from "../components/RelatedProducts";
+import { toast } from 'react-toastify';
 
 const Product = () => {
   const { productId } = useParams();
-  const { products, currency, addToCart, isLoading } = useContext(ShopContext);
+  const { products, currency, addToCart, isLoading, token } = useContext(ShopContext);
   const [productData, setProductData] = useState(null);
   const [image, setImage] = useState("");
   const [size, setSize] = useState("");
+  const navigate = useNavigate();
 
   const fetchProductData = () => {
     const product = products.find((item) => item._id === productId);
     if (product) {
-      console.log("Product images:", product.images); // Debug log
+      console.log("Product images:", product.images);
       setProductData(product);
-      setImage(product.images?.[0] || assets.placeholder_image); // Use placeholder if no images
+      setImage(product.images?.[0] || assets.placeholder_image);
     } else {
       setProductData(null);
     }
+  };
+
+  const handleBuyNow = () => {
+    if (!token) {
+      toast.error("Please log in to proceed");
+      navigate('/login');
+      return;
+    }
+    if (!size) {
+      toast.error("Select Product Size");
+      return;
+    }
+    addToCart(productData._id, size);
+    navigate('/place-order');
   };
 
   useEffect(() => {
@@ -40,11 +56,8 @@ const Product = () => {
 
   return (
     <div className="border-t-2 pt-10 transition-opacity ease-in duration-500 opacity-100 bg-white rounded-lg shadow-md p-6">
-      {/* Product Section */}
       <div className="flex flex-col sm:flex-row gap-12">
-        {/* Left Section: Images */}
         <div className="flex-1 flex flex-col sm:flex-row gap-4">
-          {/* Thumbnails */}
           <div className="flex sm:flex-col overflow-x-auto sm:overflow-y-auto sm:w-[20%] w-full gap-2">
             {productData.images && productData.images.length > 0 ? (
               productData.images.map((item, index) => (
@@ -54,25 +67,23 @@ const Product = () => {
                   key={index}
                   className={`w-24 h-24 object-cover cursor-pointer rounded-md border ${image === item ? "border-blue-500" : "border-gray-300"}`}
                   alt={`Thumbnail ${index + 1}`}
-                  onError={() => console.error(`Failed to load image: ${item}`)} // Debug image errors
+                  onError={() => console.error(`Failed to load image: ${item}`)}
                 />
               ))
             ) : (
               <p className="text-gray-600">No images available</p>
             )}
           </div>
-          {/* Main Image */}
           <div className="w-full sm:w-[80%]">
             <img
               src={image || assets.placeholder_image}
               className="w-full h-auto rounded-md border border-gray-300"
               alt="Main Product"
-              onError={() => setImage(assets.placeholder_image)} // Fallback on error
+              onError={() => setImage(assets.placeholder_image)}
             />
           </div>
         </div>
 
-        {/* Right Section: Product Details */}
         <div className="flex-1">
           <h1 className="font-medium text-2xl mt-2 text-gray-800">{productData.name}</h1>
           <div className="flex items-center gap-1 mt-2">
@@ -87,6 +98,7 @@ const Product = () => {
             {currency}
             {productData.price}
           </p>
+          <p className="mt-2 text-gray-600">Available stock: {stock}</p>
           <p className="mt-5 text-gray-600">{productData.description}</p>
           <div className="flex flex-col gap-4 my-8">
             <p className="text-gray-700 font-medium">Select Size</p>
@@ -103,13 +115,22 @@ const Product = () => {
             </div>
           </div>
           {stock > 0 ? (
-            <button
-              onClick={() => addToCart(productData._id, size)}
-              className="bg-blue-600 text-white px-8 py-3 rounded-md text-sm hover:bg-blue-700 transition-colors"
-              disabled={isLoading}
-            >
-              ADD TO CART
-            </button>
+            <div className="flex gap-4">
+              <button
+                onClick={() => addToCart(productData._id, size)}
+                className="bg-blue-600 text-white px-8 py-3 rounded-md text-sm hover:bg-blue-700 transition-colors"
+                disabled={isLoading}
+              >
+                ADD TO CART
+              </button>
+              <button
+                onClick={handleBuyNow}
+                className="bg-green-600 text-white px-8 py-3 rounded-md text-sm hover:bg-green-700 transition-colors"
+                disabled={isLoading}
+              >
+                BUY NOW
+              </button>
+            </div>
           ) : (
             <p className="text-red-500 font-bold">Out of Stock</p>
           )}
@@ -122,7 +143,6 @@ const Product = () => {
         </div>
       </div>
 
-      {/* Description Section */}
       <div className="mt-20">
         <div className="flex">
           <b className="border px-5 py-3 text-sm text-gray-700 bg-gray-100 rounded-t-md">Description</b>
@@ -132,7 +152,6 @@ const Product = () => {
         </div>
       </div>
 
-      {/* Related Products Section */}
       <RelatedProducts category={productData.category} subCategory={productData.subCategory} />
     </div>
   );
