@@ -18,9 +18,9 @@ const LatestCollection = () => {
 
   const handleViewAllClick = () => {
     if (navigate) {
-      navigate('/shop');
+      navigate('/collection');
     } else {
-      window.location.href = '/shop';
+      window.location.href = '/collection';
     }
   };
 

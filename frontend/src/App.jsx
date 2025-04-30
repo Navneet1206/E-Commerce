@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import NavBar from './components/NavBar';
 import Footer from './components/Footer';
 import SearchBar from './components/SearchBar';
+import SearchResults from './components/SearchResults';
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -16,7 +17,7 @@ const Login = lazy(() => import('./pages/Login'));
 const PlaceOrder = lazy(() => import('./pages/PlaceOrder'));
 const Orders = lazy(() => import('./pages/Orders'));
 const Collection = lazy(() => import('./pages/Collection'));
-const Signup = lazy(() => import('./pages/Signup'));
+const Signup = lazy(() => import('./pages/Signup')); 
 
 const App = () => {
   return (
@@ -36,6 +37,7 @@ const App = () => {
           <Route path="/signup" element={<Signup />} />
           <Route path="/place-order" element={<PlaceOrder />} />
           <Route path="/orders" element={<Orders />} />
+          <Route path="/search" element={<SearchResults />} />
         </Routes>
       </Suspense>
       <Footer />
