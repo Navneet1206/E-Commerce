@@ -8,12 +8,11 @@ const authUser = async (req, res, next) => {
   try {
     const token_decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.body.userId = token_decoded.id;
-    req.body.role = token_decoded.role; // Include role for flexibility
+    req.body.role = token_decoded.role;
     next();
   } catch (error) {
     console.error("Auth error:", error);
     res.json({ success: false, message: "Invalid token" });
   }
 };
-
 export default authUser;
