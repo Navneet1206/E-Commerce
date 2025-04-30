@@ -8,7 +8,7 @@ import { send2StepVerificationEmail } from "../config/sendmessage.js";
 dotenv.config();
 
 const createToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "1h" });
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "24h" });
 };
 
 // Temporary OTP storage (use Redis in production)
