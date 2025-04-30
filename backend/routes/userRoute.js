@@ -1,10 +1,11 @@
 import express from 'express';
-import { loginUser, registerUser, adminLogin } from '../controllers/userController.js';
+import { loginUser, registerUser, adminLogin, sendOtp } from '../controllers/userController.js';
 import authUser from '../middleware/auth.js';
 import { addAddress, updateAddress, deleteAddress, getAddresses } from '../controllers/userController.js';
 
 const userRouter = express.Router();
 
+userRouter.post('/send-otp', sendOtp);
 userRouter.post('/register', registerUser);
 userRouter.post('/login', loginUser);
 userRouter.post('/admin', adminLogin);

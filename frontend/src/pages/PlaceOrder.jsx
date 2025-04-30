@@ -54,9 +54,6 @@ const PlaceOrder = () => {
         const response = await axios.get(`${backendUrl}/api/user/addresses`, { headers: { token } });
         if (response.data.success) {
           setAddresses(response.data.addresses);
-          if (response.data.addresses.length === 0) {
-            setUseNewAddress(true);
-          }
         } else {
           toast.error(response.data.message);
         }
@@ -119,12 +116,8 @@ const PlaceOrder = () => {
       if (!backendUrl) throw new Error('Backend URL not defined');
       if (!token) throw new Error('Please log in first');
 
-      let addressToUse;
-      if (useNewAddress) {
-        addressToUse = formData;
-      } else if (selectedAddress) {
-        addressToUse = selectedAddress;
-      } else {
+      const addressToUse = useNewAddress ? formData : selectedAddress;
+      if (!addressToUse) {
         throw new Error("Please select an address or add a new one");
       }
 
@@ -252,22 +245,22 @@ const PlaceOrder = () => {
           </div>
         ) : (
           <div>
-            <p className="text-gray-700 mb-2">{useNewAddress || addresses.length === 0 ? "Add New Address" : "No saved addresses. Please add a new address."}</p>
+            <p className="text-gray-700 mb-2">{useNewAddress ? "Add New Address" : "No saved addresses. Please add a new address."}</p>
             <div className='flex gap-3'>
-              <input required onChange={onChangeHandler} name='firstName' value={formData.firstName} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='First name' />
-              <input required onChange={onChangeHandler} name='lastName' value={formData.lastName} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='Last name' />
+              <input required={useNewAddress} onChange={onChangeHandler} name='firstName' value={formData.firstName} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='First name' />
+              <input required={useNewAddress} onChange={onChangeHandler} name='lastName' value={formData.lastName} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='Last name' />
             </div>
-            <input required onChange={onChangeHandler} name='email' value={formData.email} className='border border-gray-300 rounded py-1.5 px-3.5 w-full mt-3' type="email" placeholder='Email address' />
-            <input required onChange={onChangeHandler} name='street' value={formData.street} className='border border-gray-300 rounded py-1.5 px-3.5 w-full mt-3' type="text" placeholder='Street' />
+            <input required={useNewAddress} onChange={onChangeHandler} name='email' value={formData.email} className='border border-gray-300 rounded py-1.5 px-3.5 w-full mt-3' type="email" placeholder='Email address' />
+            <input required={useNewAddress} onChange={onChangeHandler} name='street' value={formData.street} className='border border-gray-300 rounded py-1.5 px-3.5 w-full mt-3' type="text" placeholder='Street' />
             <div className='flex gap-3 mt-3'>
-              <input required onChange={onChangeHandler} name='city' value={formData.city} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='City' />
-              <input required onChange={onChangeHandler} name='state' value={formData.state} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='State' />
+              <input required={useNewAddress} onChange={onChangeHandler} name='city' value={formData.city} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='City' />
+              <input required={useNewAddress} onChange={onChangeHandler} name='state' value={formData.state} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='State' />
             </div>
             <div className='flex gap-3 mt-3'>
-              <input required onChange={onChangeHandler} name='zipcode' value={formData.zipcode} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="number" placeholder='Zipcode' />
-              <input required onChange={onChangeHandler} name='country' value={formData.country} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='Country' />
+              <input required={useNewAddress} onChange={onChangeHandler} name='zipcode' value={formData.zipcode} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="number" placeholder='Zipcode' />
+              <input required={useNewAddress} onChange={onChangeHandler} name='country' value={formData.country} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='Country' />
             </div>
-            <input required onChange={onChangeHandler} name='phone' value={formData.phone} className='border border-gray-300 rounded py-1.5 px-3.5 w-full mt-3' type="number" placeholder='Phone' />
+            <input required={useNewAddress} onChange={onChangeHandler} name='phone' value={formData.phone} className='border border-gray-300 rounded py-1.5 px-3.5 w-full mt-3' type="number" placeholder='Phone' />
             {useNewAddress && (
               <div className="flex items-center gap-2 mt-4">
                 <input type="checkbox" checked={saveAddress} onChange={(e) => setSaveAddress(e.target.checked)} />
