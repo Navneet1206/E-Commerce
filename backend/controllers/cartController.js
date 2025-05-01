@@ -3,30 +3,26 @@ import userModel from "../models/userModel.js";
 
 // add products to user cart
 const addToCart = async (req, res) => {
-    try{
-        const { userId, itemId, size } = req.body;
-        const userData = await userModel.findById(userId);
-        let cartData = await userData.cartData;
-        if(cartData[itemId]){
-            if(cartData[itemId][size]){
-                cartData[itemId][size] += 1;
-            }
-            else{
-                cartData[itemId][size] = 1;
-            }
+    try {
+      const { userId, itemId, size, quantity = 1 } = req.body;
+      const userData = await userModel.findById(userId);
+      let cartData = await userData.cartData;
+      if (cartData[itemId]) {
+        if (cartData[itemId][size]) {
+          cartData[itemId][size] += quantity;
+        } else {
+          cartData[itemId][size] = quantity;
         }
-        else{
-            cartData[itemId] = {};
-            cartData[itemId][size] = 1;
-        }
-        await userModel.findByIdAndUpdate(userId, {cartData})
-        res.json({success: true, message: "Product added to cart successfully"});
+      } else {
+        cartData[itemId] = { [size]: quantity };
+      }
+      await userModel.findByIdAndUpdate(userId, { cartData });
+      res.json({ success: true, message: "Product added to cart successfully" });
+    } catch (error) {
+      console.log(error);
+      res.json({ success: false, message: error.message });
     }
-    catch(error){
-        console.log(error)
-        res.json({success: false, message: error.message});
-    }
-}
+  };
 
 
 // update user cart

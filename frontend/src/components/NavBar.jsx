@@ -116,7 +116,7 @@ const NavBar = () => {
                             <>
                                 <img
                                     src={assets.profile_icon}
-                                    className="w-8 h-8 rounded-full border-2 border-indigo-600 cursor-pointer"
+                                    className="w-8 h-8  border-2 border-white cursor-pointer"
                                     alt="Profile"
                                     aria-label="User menu"
                                 />

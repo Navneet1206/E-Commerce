@@ -18,12 +18,14 @@ const PlaceOrder = lazy(() => import('./pages/PlaceOrder'));
 const Orders = lazy(() => import('./pages/Orders'));
 const Collection = lazy(() => import('./pages/Collection'));
 const Signup = lazy(() => import('./pages/Signup')); 
+const TrackOrder = lazy(() => import('./pages/TrackOrder'));
 
 const App = () => {
   return (
-    <div className="px-4 sm:px-[5vw] md:px-[7vw] lg:px-[9vw]">
-      <ToastContainer />
+    <>
       <NavBar />
+    <div className="px-2">
+      <ToastContainer />
       <SearchBar />
       <Suspense fallback={<div className="text-center py-10 text-gray-600">Loading...</div>}>
         <Routes>
@@ -37,11 +39,13 @@ const App = () => {
           <Route path="/signup" element={<Signup />} />
           <Route path="/place-order" element={<PlaceOrder />} />
           <Route path="/orders" element={<Orders />} />
+          <Route path="/order/track/:idoforder" element={<TrackOrder />} />
           <Route path="/search" element={<SearchResults />} />
         </Routes>
       </Suspense>
       <Footer />
     </div>
+    </>
   );
 };
 

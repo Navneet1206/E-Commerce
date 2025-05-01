@@ -11,20 +11,21 @@ const Product = () => {
   const [productData, setProductData] = useState(null);
   const [image, setImage] = useState("");
   const [size, setSize] = useState("");
-  const [quantity, setQuantity] = useState(1); // New state for quantity
+  const [quantity, setQuantity] = useState(1);
   const [showPopup, setShowPopup] = useState(false);
   const [zoomPosition, setZoomPosition] = useState({ x: 0, y: 0 });
-  const [isZoomActive, setIsZoomActive] = useState(false); // New state for zoom activation
+  const [isZoomActive, setIsZoomActive] = useState(false);
   const navigate = useNavigate();
 
   const fetchProductData = () => {
     const product = products.find((item) => item._id === productId);
     if (product) {
-      console.log("Product images:", product.images);
       setProductData(product);
       setImage(product.images?.[0] || assets.placeholder_image);
+      console.log("Fetched Product Data:", product);
     } else {
       setProductData(null);
+      console.log("Product not found for ID:", productId);
     }
   };
 
@@ -54,6 +55,7 @@ const Product = () => {
     } else {
       setQuantity(value);
     }
+    console.log("Quantity changed via input:", value);
   };
 
   const handleBuyNow = () => {
@@ -70,7 +72,7 @@ const Product = () => {
       toast.error("Select a valid quantity");
       return;
     }
-    addToCart(productData._id, size, quantity); // Pass quantity
+    addToCart(productData._id, size, quantity);
     navigate('/place-order');
   };
 
@@ -83,7 +85,7 @@ const Product = () => {
       toast.error("Select a valid quantity");
       return;
     }
-    addToCart(productData._id, size, quantity); // Pass quantity
+    addToCart(productData._id, size, quantity);
     toast.success("Added to cart");
   };
 
@@ -92,6 +94,10 @@ const Product = () => {
       fetchProductData();
     }
   }, [productId, products, isLoading]);
+
+  useEffect(() => {
+    console.log("Current State - Size:", size, "Quantity:", quantity, "Stock:", productData?.stock);
+  }, [size, quantity, productData]);
 
   if (isLoading) {
     return <div className="text-center py-10 text-gray-600">Loading...</div>;
@@ -169,27 +175,56 @@ const Product = () => {
           <div className="flex flex-col gap-4 my-8">
             <p className="text-gray-700 font-medium">Select Size</p>
             <div className="flex gap-2">
-              {productData.sizes.map((item, index) => (
-                <button
-                  onClick={() => setSize(item)}
-                  key={index}
-                  className={`bg-gray-100 py-2 px-4 border rounded-md ${item === size ? "border-blue-500" : "border-gray-300"} hover:bg-gray-200`}
-                >
-                  {item}
-                </button>
-              ))}
+              {productData.sizes && Array.isArray(productData.sizes) ? (
+                productData.sizes.map((item, index) => (
+                  <button
+                    onClick={() => {
+                      console.log("Size clicked:", item);
+                      setSize(item);
+                    }}
+                    key={index}
+                    className={`bg-gray-100 py-2 px-4 border rounded-md ${item === size ? "border-blue-500" : "border-gray-300"} hover:bg-gray-200`}
+                  >
+                    {item}
+                  </button>
+                ))
+              ) : (
+                <p className="text-red-500">No sizes available</p>
+              )}
             </div>
             <div className="flex flex-col gap-2">
               <p className="text-gray-700 font-medium">Select Quantity</p>
-              <input
-                type="number"
-                min="0"
-                max={stock}
-                value={quantity}
-                onChange={handleQuantityChange}
-                className="w-20 py-2 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={stock === 0}
-              />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    console.log("Decrement clicked, current quantity:", quantity);
+                    setQuantity(prev => Math.max(prev - 1, 0));
+                  }}
+                  className="px-2 py-1 border border-gray-300 rounded-md bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
+                  disabled={quantity <= 0 || stock === 0}
+                >
+                  -
+                </button>
+                <input
+                  type="number"
+                  min="0"
+                  max={stock}
+                  value={quantity}
+                  onChange={handleQuantityChange}
+                  className="w-16 py-2 px-3 border border-gray-300 rounded-md text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={stock === 0}
+                />
+                <button
+                  onClick={() => {
+                    console.log("Increment clicked, current quantity:", quantity, "stock:", stock);
+                    setQuantity(prev => (prev + 1 <= stock ? prev + 1 : prev));
+                  }}
+                  className="px-2 py-1 border border-gray-300 rounded-md bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
+                  disabled={quantity >= stock || stock === 0}
+                >
+                  +
+                </button>
+              </div>
             </div>
           </div>
           {stock > 0 ? (

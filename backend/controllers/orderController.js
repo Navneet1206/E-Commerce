@@ -290,4 +290,21 @@ const updateStatus = async (req, res) => {
   }
 };
 
-export { placeOrder, placeOrderRazorpay, verifyPayment, allOrders, updateStatus, userOrders };
+const getOrderById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const order = await orderModel.findById(id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    if (order.userId !== req.body.userId) {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
+    }
+    res.json({ success: true, order });
+  } catch (error) {
+    console.error("Get Order By ID Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export { placeOrder, placeOrderRazorpay, verifyPayment, allOrders, updateStatus, userOrders, getOrderById };
