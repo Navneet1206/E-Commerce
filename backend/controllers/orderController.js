@@ -5,6 +5,7 @@ import Razorpay from "razorpay";
 import crypto from "crypto";
 import dotenv from "dotenv";
 import { sendOrderUpdateEmail, sendOrderBookingEmail, sendOrderNotificationToAdmin } from "../config/sendmessage.js";
+import PDFDocument from 'pdfkit'; // Import pdfkit for invoice generation
 
 dotenv.config();
 
@@ -295,4 +296,86 @@ const getOrderById = async (req, res) => {
   }
 };
 
-export { placeOrder, placeOrderRazorpay, verifyPayment, allOrders, updateStatus, userOrders, getOrderById };
+// New Function: Generate Invoice
+const generateInvoice = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const order = await orderModel.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    const doc = new PDFDocument();
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=invoice-${orderId}.pdf`);
+    doc.pipe(res);
+
+    // Header
+    doc.fontSize(20).text('Invoice', { align: 'center' });
+    doc.moveDown();
+
+    // Order Details
+    doc.fontSize(14).text(`Order ID: ${order._id}`);
+    doc.text(`Date: ${new Date(order.date).toLocaleDateString()}`);
+    doc.moveDown();
+
+    // Customer Details
+    doc.text(`Customer: ${order.address.firstName} ${order.address.lastName}`);
+    doc.text(`Email: ${order.address.email}`);
+    doc.text(`Address: ${order.address.street}, ${order.address.city}, ${order.address.state}, ${order.address.zipcode}, ${order.address.country}`);
+    doc.moveDown();
+
+    // Items Section
+    doc.fontSize(14).text('Items:', { underline: true });
+    doc.moveDown(0.5);
+    order.items.forEach((item, index) => {
+      doc.fontSize(12).text(`Item ${index + 1}:`);
+      doc.text(`  Product Name: ${item.name || 'Unknown Product'}`); // Fallback if name is missing
+      doc.text(`  Size: ${item.size}`);
+      doc.text(`  Quantity: ${item.quantity}`);
+      doc.text(`  Price: ${item.price}`);
+      doc.moveDown(0.5);
+    });
+
+    // Total Amount
+    doc.moveDown();
+    doc.fontSize(14).text(`Total Amount: ${order.amount}`);
+
+    // Footer
+    doc.moveDown();
+    doc.text('Thank you for your purchase!', { align: 'center' });
+
+    doc.end();
+  } catch (error) {
+    console.error("Generate Invoice Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// New Function: Confirm Payment for COD
+const confirmPayment = async (req, res) => {
+  try {
+    const { orderId } = req.body;
+    if (!orderId) {
+      return res.status(400).json({ success: false, message: "Order ID is required" });
+    }
+    const order = await orderModel.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    if (order.paymentMethod !== 'COD') {
+      return res.status(400).json({ success: false, message: "Payment confirmation is only for COD orders" });
+    }
+    if (order.payment) {
+      return res.status(400).json({ success: false, message: "Payment already confirmed" });
+    }
+    order.payment = true;
+    await order.save();
+    res.json({ success: true, message: "Payment confirmed" });
+  } catch (error) {
+    console.error("Confirm Payment Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export { placeOrder, placeOrderRazorpay, verifyPayment, allOrders, updateStatus, userOrders, getOrderById, generateInvoice, confirmPayment };
