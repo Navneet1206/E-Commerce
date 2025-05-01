@@ -29,13 +29,8 @@ const Product = () => {
     }
   };
 
-  const handleMouseEnter = () => {
-    setIsZoomActive(true);
-  };
-
-  const handleMouseLeave = () => {
-    setIsZoomActive(false);
-  };
+  const handleMouseEnter = () => setIsZoomActive(true);
+  const handleMouseLeave = () => setIsZoomActive(false);
 
   const handleMouseMove = (e) => {
     if (!isZoomActive) return;
@@ -58,7 +53,8 @@ const Product = () => {
     console.log("Quantity changed via input:", value);
   };
 
-  const handleBuyNow = () => {
+  const handleBuyNow = (e) => {
+    e.stopPropagation();
     if (!token) {
       toast.error("Please log in to proceed");
       navigate('/login');
@@ -76,7 +72,8 @@ const Product = () => {
     navigate('/place-order');
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = (e) => {
+    e.stopPropagation();
     if (!size) {
       toast.error("Select Product Size");
       return;
@@ -154,7 +151,7 @@ const Product = () => {
               }}
             ></div>
             <div
-              className={`hidden sm:block absolute top-0 left-full ml-4 w-96 h-96 bg-white border border-gray-300 shadow-lg ${isZoomActive ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300 z-10`}
+              className={`hidden sm:block absolute top-0 left-full ml-4 w-96 h-96 bg-white border border-gray-300 shadow-lg pointer-events-none ${isZoomActive ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300 z-10`}
               style={{
                 backgroundImage: `url(${image || assets.placeholder_image})`,
                 backgroundSize: "300% 300%",
@@ -164,7 +161,7 @@ const Product = () => {
           </div>
         </div>
 
-        <div className="flex-1">
+        <div className="flex-1 relative z-10">
           <h1 className="font-medium text-2xl mt-2 text-gray-800">{productData.name}</h1>
           <div className="mt-5 flex items-center gap-2">
             <span className="text-gray-500 line-through text-sm">{formattedOriginalPrice}</span>
@@ -174,16 +171,17 @@ const Product = () => {
           <p className="mt-2 text-gray-600">Available stock: {stock}</p>
           <div className="flex flex-col gap-4 my-8">
             <p className="text-gray-700 font-medium">Select Size</p>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {productData.sizes && Array.isArray(productData.sizes) ? (
                 productData.sizes.map((item, index) => (
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       console.log("Size clicked:", item);
                       setSize(item);
                     }}
                     key={index}
-                    className={`bg-gray-100 py-2 px-4 border rounded-md ${item === size ? "border-blue-500" : "border-gray-300"} hover:bg-gray-200`}
+                    className={`bg-gray-100 py-2 px-4 border rounded-md cursor-pointer ${item === size ? "border-blue-500" : "border-gray-300"} hover:bg-gray-200 relative z-20`}
                   >
                     {item}
                   </button>
@@ -196,11 +194,12 @@ const Product = () => {
               <p className="text-gray-700 font-medium">Select Quantity</p>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     console.log("Decrement clicked, current quantity:", quantity);
                     setQuantity(prev => Math.max(prev - 1, 0));
                   }}
-                  className="px-2 py-1 border border-gray-300 rounded-md bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
+                  className="px-2 py-1 border border-gray-300 rounded-md bg-gray-100 hover:bg-gray-200 disabled:opacity-50 cursor-pointer relative z-20"
                   disabled={quantity <= 0 || stock === 0}
                 >
                   -
@@ -211,15 +210,16 @@ const Product = () => {
                   max={stock}
                   value={quantity}
                   onChange={handleQuantityChange}
-                  className="w-16 py-2 px-3 border border-gray-300 rounded-md text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-16 py-2 px-3 border border-gray-300 rounded-md text-center focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-text relative z-20"
                   disabled={stock === 0}
                 />
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     console.log("Increment clicked, current quantity:", quantity, "stock:", stock);
                     setQuantity(prev => (prev + 1 <= stock ? prev + 1 : prev));
                   }}
-                  className="px-2 py-1 border border-gray-300 rounded-md bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
+                  className="px-2 py-1 border border-gray-300 rounded-md bg-gray-100 hover:bg-gray-200 disabled:opacity-50 cursor-pointer relative z-20"
                   disabled={quantity >= stock || stock === 0}
                 >
                   +
@@ -231,14 +231,14 @@ const Product = () => {
             <div className="flex gap-4">
               <button
                 onClick={handleAddToCart}
-                className="bg-blue-600 text-white px-4 sm:px-8 py-2 sm:py-3 rounded-md text-xs sm:text-sm hover:bg-blue-700 transition-colors"
+                className="bg-blue-600 text-white px-4 sm:px-8 py-2 sm:py-3 rounded-md text-xs sm:text-sm hover:bg-blue-700 transition-colors cursor-pointer relative z-20"
                 disabled={isLoading}
               >
                 ADD TO CART
               </button>
               <button
                 onClick={handleBuyNow}
-                className="bg-green-600 text-white px-4 sm:px-8 py-2 sm:py-3 rounded-md text-xs sm:text-sm hover:bg-green-700 transition-colors"
+                className="bg-green-600 text-white px-4 sm:px-8 py-2 sm:py-3 rounded-md text-xs sm:text-sm hover:bg-green-700 transition-colors cursor-pointer relative z-20"
                 disabled={isLoading}
               >
                 BUY NOW
@@ -265,7 +265,7 @@ const Product = () => {
             />
             <button
               onClick={() => setShowPopup(false)}
-              className="fixed top-2 right-2 bg-black text-white rounded-full p-2 font-medium"
+              className="fixed top-2 right-2 bg-black text-white rounded-full p-2 font-medium cursor-pointer"
             >
               Close
             </button>
