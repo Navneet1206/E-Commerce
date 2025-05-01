@@ -1,3 +1,4 @@
+// frontend/src/pages/PlaceOrder.jsx
 import React, { useContext, useState, useEffect } from 'react';
 import Title from '../components/Title';
 import CartTotal from '../components/CartTotal';
@@ -16,6 +17,11 @@ const PlaceOrder = () => {
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [useNewAddress, setUseNewAddress] = useState(false);
   const [saveAddress, setSaveAddress] = useState(true);
+  const [showCouponInput, setShowCouponInput] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponStatus, setCouponStatus] = useState(null);
+  const [discount, setDiscount] = useState(0);
+  const [finalAmount, setFinalAmount] = useState(getCartAmount() + delivery_fee);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -33,19 +39,13 @@ const PlaceOrder = () => {
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.async = true;
-    script.onload = () => {
-      console.log('Razorpay script loaded');
-      setRazorpayLoaded(true);
-    };
+    script.onload = () => setRazorpayLoaded(true);
     script.onerror = () => {
-      console.error('Razorpay script failed to load');
       toast.error('Failed to load Razorpay');
       setRazorpayLoaded(false);
     };
     document.body.appendChild(script);
-    return () => {
-      document.body.removeChild(script);
-    };
+    return () => document.body.removeChild(script);
   }, []);
 
   useEffect(() => {
@@ -54,21 +54,21 @@ const PlaceOrder = () => {
         const response = await axios.get(`${backendUrl}/api/user/addresses`, { headers: { token } });
         if (response.data.success) {
           setAddresses(response.data.addresses);
-          if (response.data.addresses.length === 0) {
-            setUseNewAddress(true);
-          }
+          if (response.data.addresses.length === 0) setUseNewAddress(true);
         } else {
           toast.error(response.data.message);
         }
       } catch (error) {
-        console.error("Error fetching addresses:", error);
         toast.error(error.response?.data?.message || error.message);
       }
     };
-    if (token) {
-      fetchAddresses();
-    }
+    if (token) fetchAddresses();
   }, [token, backendUrl]);
+
+  useEffect(() => {
+    // Reset final amount when cart changes
+    setFinalAmount(getCartAmount() + delivery_fee - discount);
+  }, [cartItems, delivery_fee, discount]);
 
   const onChangeHandler = (event) => {
     const { name, value } = event.target;
@@ -84,33 +84,65 @@ const PlaceOrder = () => {
       );
       if (response.data.success) {
         setAddresses((prev) => prev.filter((addr) => addr._id.toString() !== addressId));
-        if (selectedAddress?._id.toString() === addressId) {
-          setSelectedAddress(null);
-        }
+        if (selectedAddress?._id.toString() === addressId) setSelectedAddress(null);
         toast.success("Address deleted");
       } else {
         toast.error(response.data.message);
       }
     } catch (error) {
-      console.error("Error deleting address:", error);
       toast.error(error.response?.data?.message || error.message);
     }
   };
 
   const editAddress = (addr) => {
     setUseNewAddress(true);
-    setFormData({
-      firstName: addr.firstName,
-      lastName: addr.lastName,
-      email: addr.email,
-      street: addr.street,
-      city: addr.city,
-      state: addr.state,
-      zipcode: addr.zipcode,
-      country: addr.country,
-      phone: addr.phone,
-    });
+    setFormData({ ...addr });
     setSelectedAddress(addr);
+  };
+
+  const validateCouponCode = async () => {
+    try {
+      const orderItems = [];
+      for (const itemId in cartItems) {
+        for (const size in cartItems[itemId]) {
+          if (cartItems[itemId][size] > 0) {
+            const itemInfo = structuredClone(products.find((product) => product._id === itemId));
+            if (itemInfo) {
+              itemInfo.size = size;
+              itemInfo.quantity = cartItems[itemId][size];
+              orderItems.push(itemInfo);
+            }
+          }
+        }
+      }
+
+      const response = await axios.post(
+        `${backendUrl}/api/order/validate-coupon`,
+        {
+          couponCode: couponCode.trim(),
+          userId: JSON.parse(atob(token.split('.')[1])).id,
+          items: orderItems
+        },
+        { headers: { token } }
+      );
+
+      if (response.data.success) {
+        setCouponStatus({ valid: true, message: response.data.message });
+        setDiscount(response.data.discount);
+        setFinalAmount(response.data.finalAmount + delivery_fee);
+        toast.success(response.data.message);
+      } else {
+        setCouponStatus({ valid: false, message: response.data.message });
+        setDiscount(0);
+        setFinalAmount(getCartAmount() + delivery_fee);
+        toast.error(response.data.message);
+      }
+    } catch (error) {
+      setCouponStatus({ valid: false, message: error.response?.data?.message || 'Error validating coupon' });
+      setDiscount(0);
+      setFinalAmount(getCartAmount() + delivery_fee);
+      toast.error(error.response?.data?.message || 'Error validating coupon');
+    }
   };
 
   const onSubmitHandler = async (event) => {
@@ -120,9 +152,7 @@ const PlaceOrder = () => {
       if (!token) throw new Error('Please log in first');
 
       const addressToUse = useNewAddress ? formData : selectedAddress;
-      if (!addressToUse) {
-        throw new Error("Please select an address or add a new one");
-      }
+      if (!addressToUse) throw new Error("Please select or add an address");
 
       const requiredFields = ['firstName', 'lastName', 'email', 'street', 'city', 'state', 'zipcode', 'country', 'phone'];
       for (const field of requiredFields) {
@@ -148,11 +178,10 @@ const PlaceOrder = () => {
       const orderData = {
         address: addressToUse,
         items: orderItems,
-        amount: getCartAmount() + delivery_fee,
+        amount: finalAmount,
         userId: JSON.parse(atob(token.split('.')[1])).id,
+        couponCode: couponStatus?.valid ? couponCode.trim() : null,
       };
-
-      console.log('Sending order data:', orderData);
 
       if (method === 'cod') {
         const response = await axios.post(`${backendUrl}/api/order/place`, orderData, { headers: { token } });
@@ -182,7 +211,7 @@ const PlaceOrder = () => {
         const { orderId, keyId } = response.data;
         const options = {
           key: keyId,
-          amount: (orderData.amount * 100).toString(),
+          amount: (finalAmount * 100).toString(),
           currency: "INR",
           name: "Forever",
           description: "Order Payment",
@@ -194,6 +223,7 @@ const PlaceOrder = () => {
                 razorpayPaymentId: response.razorpay_payment_id,
                 razorpaySignature: response.razorpay_signature,
                 userId: orderData.userId,
+                couponCode: couponStatus?.valid ? couponCode.trim() : null
               };
               const verifyResponse = await axios.post(`${backendUrl}/api/order/verify`, verificationData, { headers: { token } });
               if (verifyResponse.data.success) {
@@ -230,7 +260,6 @@ const PlaceOrder = () => {
         rzp.open();
       }
     } catch (error) {
-      console.error('Order error:', error);
       toast.error(error.response?.data?.message || error.message || 'Error placing order');
     }
   };
@@ -262,7 +291,7 @@ const PlaceOrder = () => {
           </div>
         ) : (
           <div>
-            <p className="text-gray-700 mb-2">{addresses.length === 0 ? "Please add a new address for your order:" : "Add New Address"}</p>
+            <p className="text-gray-700 mb-2">{addresses.length === 0 ? 'No saved addresses available.' : ''}</p>
             <div className='flex gap-3'>
               <input required onChange={onChangeHandler} name='firstName' value={formData.firstName} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='First name' />
               <input required onChange={onChangeHandler} name='lastName' value={formData.lastName} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='Last name' />
@@ -287,7 +316,46 @@ const PlaceOrder = () => {
       </div>
       <div className='mt-8'>
         <div className='mt-8 min-w-80'>
-          <CartTotal />
+          <CartTotal discount={discount} finalAmount={finalAmount} />
+          <div className='mt-4'>
+            {!showCouponInput ? (
+              <button
+                type="button"
+                onClick={() => setShowCouponInput(true)}
+                className="text-blue-500 text-sm font-medium"
+              >
+                Have a coupon?
+              </button>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Coupon Code</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => {
+                      setCouponCode(e.target.value);
+                      setCouponStatus(null);
+                    }}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    placeholder="Enter coupon code"
+                  />
+                  <button
+                    type="button"
+                    onClick={validateCouponCode}
+                    className="mt-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                  >
+                    Apply
+                  </button>
+                </div>
+                {couponStatus && (
+                  <p className={`mt-2 text-sm ${couponStatus.valid ? 'text-green-600' : 'text-red-600'}`}>
+                    {couponStatus.message}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         <div className='mt-12'>
           <Title text1={'PAYMENT'} text2={'METHOD'} />

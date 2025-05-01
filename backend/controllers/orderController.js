@@ -1,11 +1,13 @@
+// backend/controllers/orderController.js
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
 import productModel from "../models/productModel.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import dotenv from "dotenv";
+import CouponUsage from "../models/couponUsageModel.js";
 import { sendOrderUpdateEmail, sendOrderBookingEmail, sendOrderNotificationToAdmin } from "../config/sendmessage.js";
-import PDFDocument from 'pdfkit'; // Import pdfkit for invoice generation
+import PDFDocument from 'pdfkit';
 
 dotenv.config();
 
@@ -48,9 +50,72 @@ const decrementStock = async (items) => {
   }
 };
 
+const validateCoupon = async (couponCode, userId, cartItems) => {
+  const products = await productModel.find({ _id: { $in: cartItems.map(item => item._id) } });
+  const coupons = {
+    [process.env.COUPON1 || '']: parseFloat(process.env.VALUEOFFINPERCENT1) || 0,
+    [process.env.COUPON2 || '']: parseFloat(process.env.VALUEOFFINPERCENT2) || 0,
+    [process.env.COUPON3 || '']: parseFloat(process.env.VALUEOFFINPERCENT3) || 0,
+    [process.env.COUPON4 || '']: parseFloat(process.env.VALUEOFFINPERCENT4) || 0,
+    [process.env.COUPON5 || '']: parseFloat(process.env.VALUEOFFINPERCENT5) || 0,
+  };
+
+  if (!couponCode || !coupons[couponCode]) {
+    return { valid: false, message: 'Invalid coupon code', discount: 0 };
+  }
+
+  const used = await CouponUsage.findOne({ userId, couponCode });
+  if (used) {
+    return { valid: false, message: 'Coupon already used', discount: 0 };
+  }
+
+  const greaterThanPrice = parseFloat(process.env.GREATERTHANPRICE) || 0;
+  const eligibleProducts = cartItems.filter(item => {
+    const product = products.find(p => p._id.toString() === item._id);
+    return product && product.price > greaterThanPrice;
+  });
+
+  if (eligibleProducts.length === 0) {
+    return { valid: false, message: 'No eligible products for this coupon', discount: 0 };
+  }
+
+  const eligibleAmount = eligibleProducts.reduce((sum, item) => {
+    const product = products.find(p => p._id.toString() === item._id);
+    return sum + (product.price * item.quantity);
+  }, 0);
+
+  const discount = (coupons[couponCode] / 100) * eligibleAmount;
+  return { valid: true, discountPercent: coupons[couponCode], discount, message: `Coupon applied! ${coupons[couponCode]}% off eligible items.` };
+};
+
+// New endpoint to validate coupon
+const validateCouponEndpoint = async (req, res) => {
+  try {
+    const { couponCode, userId, items } = req.body;
+    if (!couponCode || !userId || !items) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
+    const validation = await validateCoupon(couponCode, userId, items);
+    if (validation.valid) {
+      res.json({
+        success: true,
+        message: validation.message,
+        discount: validation.discount,
+        finalAmount: items.reduce((sum, item) => sum + (item.price * item.quantity), 0) - validation.discount
+      });
+    } else {
+      res.status(400).json({ success: false, message: validation.message });
+    }
+  } catch (error) {
+    console.error("Validate Coupon Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 const placeOrder = async (req, res) => {
   try {
-    const { userId, items, amount, address } = req.body;
+    const { userId, items, amount, address, couponCode } = req.body;
 
     if (!userId || !items || !amount || !address) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
@@ -58,53 +123,51 @@ const placeOrder = async (req, res) => {
 
     const stockCheck = await checkStockAvailability(items);
     if (!stockCheck.isAvailable) {
-      console.log("Stock check failed:", stockCheck.message);
       return res.status(400).json({ success: false, message: stockCheck.message });
     }
+
+    let discount = 0;
+    if (couponCode) {
+      const validation = await validateCoupon(couponCode, userId, items);
+      if (validation.valid) {
+        discount = validation.discount;
+        await CouponUsage.create({ userId, couponCode });
+      } else {
+        return res.status(400).json({ success: false, message: validation.message });
+      }
+    }
+
+    const finalAmount = amount - discount;
 
     const deliveryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const orderData = {
       userId,
       items,
-      amount,
+      amount: finalAmount,
       address,
       paymentMethod: "COD",
       payment: false,
       date: Date.now(),
       deliveryDate,
-      status: 'Order Placed'
+      status: 'Order Placed',
+      couponCode: couponCode || null,
+      discount
     };
+
     const newOrder = new orderModel(orderData);
     await newOrder.save();
 
     await decrementStock(orderData.items);
-
     await userModel.findByIdAndUpdate(userId, { cartData: {} });
 
     const user = await userModel.findById(userId);
     if (user && user.email) {
-      console.log(`Sending order confirmation to ${user.email} for order ${newOrder._id}`);
-      try {
-        await sendOrderBookingEmail(user.email, newOrder._id, amount);
-        console.log("Order confirmation email sent successfully to user");
-      } catch (emailError) {
-        console.error("Error sending order confirmation email to user:", emailError);
-      }
-    } else {
-      console.log(`User or email not found for userId: ${userId}`);
+      await sendOrderBookingEmail(user.email, newOrder._id, finalAmount);
     }
 
     const admin = await userModel.findOne({ role: 'admin' });
     if (admin && admin.email) {
-      console.log(`Sending admin notification to ${admin.email} for order ${newOrder._id}`);
-      try {
-        await sendOrderNotificationToAdmin(admin.email, newOrder._id, user.email || "Unknown User");
-        console.log("Admin notification email sent successfully");
-      } catch (emailError) {
-        console.error("Error sending admin notification email:", emailError);
-      }
-    } else {
-      console.log("Admin not found");
+      await sendOrderNotificationToAdmin(admin.email, newOrder._id, user.email || "Unknown User");
     }
 
     res.json({ success: true, message: "Order Placed" });
@@ -116,113 +179,109 @@ const placeOrder = async (req, res) => {
 
 const placeOrderRazorpay = async (req, res) => {
   try {
-    console.log("Razorpay Order Request:", req.body);
-    const { userId, items, amount, address } = req.body;
+    const { userId, items, amount, address, couponCode } = req.body;
 
     if (!userId || !items || !amount || !address) {
-      console.error("Missing required fields:", { userId, items, amount, address });
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
     if (typeof amount !== "number" || amount <= 0) {
-      console.error("Invalid amount:", amount);
       return res.status(400).json({ success: false, message: "Amount must be a positive number" });
     }
 
     const stockCheck = await checkStockAvailability(items);
     if (!stockCheck.isAvailable) {
-      console.log("Stock check failed:", stockCheck.message);
       return res.status(400).json({ success: false, message: stockCheck.message });
     }
 
+    let discount = 0;
+    if (couponCode) {
+      const validation = await validateCoupon(couponCode, userId, items);
+      if (validation.valid) {
+        discount = validation.discount;
+      } else {
+        return res.status(400).json({ success: false, message: validation.message });
+      }
+    }
+
+    const finalAmount = amount - discount;
+
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-      console.error("Razorpay credentials missing");
       return res.status(500).json({ success: false, message: "Razorpay configuration error" });
     }
 
-    console.log("Creating Razorpay order with amount:", amount * 100);
     const order = await razorpay.orders.create({
-      amount: Math.round(amount * 100),
+      amount: Math.round(finalAmount * 100),
       currency: "INR",
       receipt: `receipt_${Date.now()}`,
     });
-    console.log("Razorpay Order Created:", order);
 
     const deliveryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const orderData = {
       userId,
       items,
-      amount,
+      amount: finalAmount,
       address,
       paymentMethod: "Razorpay",
       payment: false,
       date: Date.now(),
       razorpayOrderId: order.id,
       deliveryDate,
+      couponCode: couponCode || null,
+      discount
     };
 
-    console.log("Saving order to database:", orderData);
     const newOrder = new orderModel(orderData);
     await newOrder.save();
-    console.log("Order saved successfully");
 
-    res.json({ success: true, orderId: order.id, keyId: process.env.RAZORPAY_KEY_ID });
+    res.json({ success: true, orderId: order.id, keyId: process.env.RAZORPAY_KEY_ID, finalAmount });
   } catch (error) {
-    console.error("Razorpay Order Error:", error.stack || error);
-    res.status(500).json({ success: false, message: error.message || "Internal Server Error" });
+    console.error("Razorpay Order Error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 const verifyPayment = async (req, res) => {
   try {
-    console.log("Verify Payment Request:", req.body);
-    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
+    const { razorpayOrderId, razorpayPaymentId, razorpaySignature, userId, couponCode } = req.body;
+
     const generatedSignature = crypto
       .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
       .update(razorpayOrderId + "|" + razorpayPaymentId)
       .digest('hex');
-    if (generatedSignature === razorpaySignature) {
-      const order = await orderModel.findOneAndUpdate(
-        { razorpayOrderId },
-        { payment: true, status: 'Order Placed' },
-        { new: true }
-      );
-      if (!order) {
-        return res.status(404).json({ success: false, message: "Order not found" });
-      }
-      await decrementStock(order.items);
-      await userModel.findByIdAndUpdate(order.userId, { cartData: {} });
 
-      const user = await userModel.findById(order.userId);
-      if (user && user.email) {
-        console.log(`Sending order confirmation to ${user.email} for order ${order._id}`);
-        try {
-          await sendOrderBookingEmail(user.email, order._id, order.amount);
-          console.log("Order confirmation email sent successfully to user");
-        } catch (emailError) {
-          console.error("Error sending order confirmation email to user:", emailError);
-        }
-      } else {
-        console.log(`User or email not found for userId: ${order.userId}`);
-      }
-
-      const admin = await userModel.findOne({ role: 'admin' });
-      if (admin && admin.email) {
-        console.log(`Sending admin notification to ${admin.email} for order ${order._id}`);
-        try {
-          await sendOrderNotificationToAdmin(admin.email, order._id, user.email || "Unknown User");
-          console.log("Admin notification email sent successfully");
-        } catch (emailError) {
-          console.error("Error sending admin notification email:", emailError);
-        }
-      } else {
-        console.log("Admin not found");
-      }
-
-      res.json({ success: true, message: "Payment verified and order placed" });
-    } else {
-      res.status(400).json({ success: false, message: "Invalid signature" });
+    if (generatedSignature !== razorpaySignature) {
+      return res.status(400).json({ success: false, message: "Invalid signature" });
     }
+
+    const order = await orderModel.findOneAndUpdate(
+      { razorpayOrderId },
+      { payment: true, status: 'Order Placed' },
+      { new: true }
+    );
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    if (couponCode) {
+      await CouponUsage.create({ userId, couponCode });
+    }
+
+    await decrementStock(order.items);
+    await userModel.findByIdAndUpdate(order.userId, { cartData: {} });
+
+    const user = await userModel.findById(order.userId);
+    if (user && user.email) {
+      await sendOrderBookingEmail(user.email, order._id, order.amount);
+    }
+
+    const admin = await userModel.findOne({ role: 'admin' });
+    if (admin && admin.email) {
+      await sendOrderNotificationToAdmin(admin.email, order._id, user.email || "Unknown User");
+    }
+
+    res.json({ success: true, message: "Payment verified and order placed" });
   } catch (error) {
     console.error("Verify Payment Error:", error);
     res.status(500).json({ success: false, message: error.message });
@@ -262,15 +321,7 @@ const updateStatus = async (req, res) => {
     }
     const user = await userModel.findById(order.userId);
     if (user && user.email) {
-      console.log(`Attempting to send order update email to ${user.email} for order ${order._id} with status ${status}`);
-      try {
-        await sendOrderUpdateEmail(user.email, order._id, status);
-        console.log("Order update email sent successfully");
-      } catch (emailError) {
-        console.error("Error sending order update email:", emailError);
-      }
-    } else {
-      console.log(`User or email not found for orderId: ${orderId}, userId: ${order.userId}`);
+      await sendOrderUpdateEmail(user.email, order._id, status);
     }
     res.json({ success: true, message: "Order Status Updated" });
   } catch (error) {
@@ -296,7 +347,6 @@ const getOrderById = async (req, res) => {
   }
 };
 
-// New Function: Generate Invoice
 const generateInvoice = async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -310,38 +360,32 @@ const generateInvoice = async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=invoice-${orderId}.pdf`);
     doc.pipe(res);
 
-    // Header
     doc.fontSize(20).text('Invoice', { align: 'center' });
     doc.moveDown();
 
-    // Order Details
     doc.fontSize(14).text(`Order ID: ${order._id}`);
     doc.text(`Date: ${new Date(order.date).toLocaleDateString()}`);
     doc.moveDown();
 
-    // Customer Details
     doc.text(`Customer: ${order.address.firstName} ${order.address.lastName}`);
     doc.text(`Email: ${order.address.email}`);
     doc.text(`Address: ${order.address.street}, ${order.address.city}, ${order.address.state}, ${order.address.zipcode}, ${order.address.country}`);
     doc.moveDown();
 
-    // Items Section
     doc.fontSize(14).text('Items:', { underline: true });
     doc.moveDown(0.5);
     order.items.forEach((item, index) => {
       doc.fontSize(12).text(`Item ${index + 1}:`);
-      doc.text(`  Product Name: ${item.name || 'Unknown Product'}`); // Fallback if name is missing
+      doc.text(`  Product Name: ${item.name || 'Unknown Product'}`);
       doc.text(`  Size: ${item.size}`);
       doc.text(`  Quantity: ${item.quantity}`);
       doc.text(`  Price: ${item.price}`);
       doc.moveDown(0.5);
     });
 
-    // Total Amount
     doc.moveDown();
     doc.fontSize(14).text(`Total Amount: ${order.amount}`);
 
-    // Footer
     doc.moveDown();
     doc.text('Thank you for your purchase!', { align: 'center' });
 
@@ -352,7 +396,6 @@ const generateInvoice = async (req, res) => {
   }
 };
 
-// New Function: Confirm Payment for COD
 const confirmPayment = async (req, res) => {
   try {
     const { orderId } = req.body;
@@ -378,4 +421,15 @@ const confirmPayment = async (req, res) => {
   }
 };
 
-export { placeOrder, placeOrderRazorpay, verifyPayment, allOrders, updateStatus, userOrders, getOrderById, generateInvoice, confirmPayment };
+export {
+  placeOrder,
+  placeOrderRazorpay,
+  verifyPayment,
+  allOrders,
+  updateStatus,
+  userOrders,
+  getOrderById,
+  generateInvoice,
+  confirmPayment,
+  validateCouponEndpoint
+};
