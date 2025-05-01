@@ -10,7 +10,6 @@ const Cart = () => {
   const [cartData, setCartData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Build cartData only after products are loaded
   useEffect(() => {
     if (products.length > 0) {
       const tempData = [];
@@ -30,44 +29,40 @@ const Cart = () => {
     }
   }, [cartItems, products]);
 
-  // Handle quantity increment
-  const handleIncrement = (itemId, size, currentQuantity, stock) => {
-    if (currentQuantity >= stock) {
-      toast.error(`Only ${stock} items available in stock`);
+  const handleIncrement = (itemId, size, currentQuantity, sizeStock) => {
+    if (currentQuantity >= sizeStock) {
+      toast.error(`Only ${sizeStock} items available for size ${size}`);
       return;
     }
     updateQuantity(itemId, size, currentQuantity + 1);
   };
 
-  // Handle quantity decrement
   const handleDecrement = (itemId, size, currentQuantity) => {
     if (currentQuantity <= 1) {
-      updateQuantity(itemId, size, 0); // Remove item if quantity becomes 0
+      updateQuantity(itemId, size, 0);
       return;
     }
     updateQuantity(itemId, size, currentQuantity - 1);
   };
 
-  // Handle direct input change
-  const handleQuantityChange = (itemId, size, value, stock) => {
+  const handleQuantityChange = (itemId, size, value, sizeStock) => {
     const newQuantity = parseInt(value, 10);
     if (isNaN(newQuantity) || newQuantity < 0) {
       toast.error("Please enter a valid quantity");
       return;
     }
-    if (newQuantity > stock) {
-      toast.error(`Only ${stock} items available in stock`);
-      updateQuantity(itemId, size, stock);
+    if (newQuantity > sizeStock) {
+      toast.error(`Only ${sizeStock} items available for size ${size}`);
+      updateQuantity(itemId, size, sizeStock);
       return;
     }
     if (newQuantity === 0) {
-      updateQuantity(itemId, size, 0); // Remove item
+      updateQuantity(itemId, size, 0);
     } else {
       updateQuantity(itemId, size, newQuantity);
     }
   };
 
-  // Show a loading message while products are being fetched
   if (loading) {
     return <div>Loading...</div>;
   }
@@ -83,14 +78,12 @@ const Cart = () => {
         <>
           <div>
             {cartData.map((item, index) => {
-              // Find the product matching the item's _id
               const productData = products.find((product) => product._id === item._id);
-
-              // Skip rendering if productData is undefined
               if (!productData) {
                 console.warn(`Product with id ${item._id} not found`);
                 return null;
               }
+              const sizeStock = productData.sizes.find(s => s.size === item.size)?.stock || 0;
 
               return (
                 <div
@@ -122,16 +115,16 @@ const Cart = () => {
                     <input
                       type="number"
                       min="0"
-                      max={productData.stock}
+                      max={sizeStock}
                       value={item.quantity}
-                      onChange={(e) => handleQuantityChange(item._id, item.size, e.target.value, productData.stock)}
+                      onChange={(e) => handleQuantityChange(item._id, item.size, e.target.value, sizeStock)}
                       className="w-16 py-2 px-3 border border-gray-300 rounded-md text-center focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-text"
-                      disabled={productData.stock === 0}
+                      disabled={sizeStock === 0}
                     />
                     <button
-                      onClick={() => handleIncrement(item._id, item.size, item.quantity, productData.stock)}
+                      onClick={() => handleIncrement(item._id, item.size, item.quantity, sizeStock)}
                       className="px-2 py-1 border border-gray-300 rounded-md bg-gray-100 hover:bg-gray-200 disabled:opacity-50 cursor-pointer"
-                      disabled={item.quantity >= productData.stock}
+                      disabled={item.quantity >= sizeStock}
                     >
                       +
                     </button>

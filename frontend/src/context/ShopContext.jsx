@@ -73,9 +73,10 @@ const ShopContextProvider = (props) => {
       return;
     }
   
+    const sizeStock = product.sizes.find(s => s.size === size)?.stock || 0;
     const currentTotal = Object.values(cartItems[itemId] || {}).reduce((acc, qty) => acc + qty, 0);
-    if (currentTotal + quantity > product.stock) {
-      toast.error("Not enough stock available");
+    if (currentTotal + quantity > sizeStock) {
+      toast.error(`Not enough stock available for size ${size}`);
       return;
     }
   
@@ -128,6 +129,7 @@ const ShopContextProvider = (props) => {
       return;
     }
 
+    const sizeStock = product.sizes.find(s => s.size === size)?.stock || 0;
     let cartData = structuredClone(cartItems);
     let total = 0;
     for (const s in cartData[itemId] || {}) {
@@ -137,8 +139,8 @@ const ShopContextProvider = (props) => {
         total += cartData[itemId][s];
       }
     }
-    if (total > product.stock) {
-      toast.error("Not enough stock available");
+    if (total > sizeStock) {
+      toast.error(`Not enough stock available for size ${size}`);
       return;
     }
 

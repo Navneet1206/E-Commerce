@@ -3,13 +3,13 @@ import { ShopContext } from '../context/ShopContext';
 import { Link } from 'react-router-dom';
 import { assets } from '../assets/assets';
 
-const ProductItem = ({ id, image, name, price, stock }) => {
-  const { currency } = useContext(ShopContext);
+const ProductItem = ({ id, image, name, price }) => {
+  const { currency, products } = useContext(ShopContext);
+  const product = products.find(p => p._id === id);
+  const isOutOfStock = product ? product.sizes.every(s => s.stock <= 0) : false;
 
-  // Ensure `image` is an array and has at least one element
   const productImage = Array.isArray(image) && image.length > 0 ? image[0] : assets.placeholder_image;
 
-  // Calculate original price based on 20% discount
   const discountPercentage = 0.20;
   const originalPrice = price / (1 - discountPercentage);
 
@@ -31,7 +31,7 @@ const ProductItem = ({ id, image, name, price, stock }) => {
       to={id ? `/product/${id}` : '#'}
     >
       <div className="relative overflow-hidden" style={{ paddingTop: '125%' }}>
-        {stock <= 0 && (
+        {isOutOfStock && (
           <span className="absolute top-2 right-2 bg-red-600 text-white text-xs font-medium px-3 py-1 rounded-full">
             Out of Stock
           </span>

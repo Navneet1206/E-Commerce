@@ -1,25 +1,21 @@
 import { v2 as cloudinary } from 'cloudinary';
 import productModel from '../models/productModel.js';
-import fs from 'fs/promises'; // Use promises for async file operations
+import fs from 'fs/promises';
 
-// Configure Cloudinary
 cloudinary.config({ 
   cloud_name: process.env.CLOUDINARY_NAME, 
   api_key: process.env.CLOUDINARY_API_KEY, 
   api_secret: process.env.CLOUDINARY_SECRET_KEY
 });
 
-// Function for adding a product
 const addProduct = async (req, res) => {
   try {
-    const { name, description, price, category, subCategory, sizes, bestseller, stock } = req.body;
+    const { name, description, price, category, subCategory, sizes, bestseller } = req.body;
 
-    // Validate required fields early
     if (!name || !description || !price || !category || !subCategory || !sizes) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
-    // Check for image uploads
     const imageUploads = [
       req.files.image1 ? req.files.image1[0] : null,
       req.files.image2 ? req.files.image2[0] : null,
@@ -31,7 +27,6 @@ const addProduct = async (req, res) => {
       return res.status(400).json({ success: false, message: "At least one image is required" });
     }
 
-    // Upload images to Cloudinary
     const images = [];
     for (const file of imageUploads) {
       try {
@@ -39,11 +34,9 @@ const addProduct = async (req, res) => {
           folder: 'ecommerce_products',
         });
         images.push(result.secure_url);
-        // Delete temporary file
         await fs.unlink(file.path);
       } catch (uploadError) {
         console.error("Cloudinary upload error:", uploadError);
-        // Clean up any remaining files
         for (const f of imageUploads) {
           try {
             await fs.unlink(f.path);
@@ -61,7 +54,6 @@ const addProduct = async (req, res) => {
       subCategory,
       sizes: JSON.parse(sizes),
       bestseller: bestseller === "true" || bestseller === true,
-      stock: Number(stock) || 0,
       images,
       date: Date.now(),
     };
@@ -70,7 +62,6 @@ const addProduct = async (req, res) => {
     res.status(201).json({ success: true, message: "Product added successfully", product });
   } catch (error) {
     console.error("Add product error:", error);
-    // Clean up any remaining files
     if (req.files) {
       for (const key of ['image1', 'image2', 'image3', 'image4']) {
         if (req.files[key]) {
@@ -84,7 +75,6 @@ const addProduct = async (req, res) => {
   }
 };
 
-// Function for listing products
 const listProducts = async (req, res) => {
   try {
     const products = await productModel.find({});
@@ -95,7 +85,6 @@ const listProducts = async (req, res) => {
   }
 };
 
-// Function for removing a product
 const removeProduct = async (req, res) => {
   try {
     await productModel.findByIdAndDelete(req.body.id);
@@ -106,7 +95,6 @@ const removeProduct = async (req, res) => {
   }
 };
 
-// Function for single product info
 const singleProduct = async (req, res) => {
   try {
     const { productId } = req.body;

@@ -13,40 +13,36 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-// Helper function to check stock availability
 const checkStockAvailability = async (items) => {
-  const productQuantities = items.reduce((acc, item) => {
-    acc[item._id] = (acc[item._id] || 0) + item.quantity;
-    return acc;
-  }, {});
-
-  for (const [productId, requestedQuantity] of Object.entries(productQuantities)) {
-    const product = await productModel.findById(productId);
+  for (const item of items) {
+    const product = await productModel.findById(item._id);
     if (!product) {
-      return { isAvailable: false, message: `Product with ID ${productId} not found` };
+      return { isAvailable: false, message: `Product with ID ${item._id} not found` };
     }
-    if (product.stock < requestedQuantity) {
+    const sizeData = product.sizes.find(s => s.size === item.size);
+    if (!sizeData) {
+      return { isAvailable: false, message: `Size ${item.size} not available for ${product.name}` };
+    }
+    if (sizeData.stock < item.quantity) {
       return {
         isAvailable: false,
-        message: `Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${requestedQuantity}`,
+        message: `Insufficient stock for ${product.name} size ${item.size}. Available: ${sizeData.stock}, Requested: ${item.quantity}`,
       };
     }
   }
   return { isAvailable: true };
 };
 
-// Helper function to decrement stock
 const decrementStock = async (items) => {
-  const productQuantities = items.reduce((acc, item) => {
-    acc[item._id] = (acc[item._id] || 0) + item.quantity;
-    return acc;
-  }, {});
-  for (const [productId, quantity] of Object.entries(productQuantities)) {
-    const product = await productModel.findById(productId);
+  for (const item of items) {
+    const product = await productModel.findById(item._id);
     if (product) {
-      product.stock -= quantity;
-      if (product.stock < 0) product.stock = 0;
-      await product.save();
+      const sizeIndex = product.sizes.findIndex(s => s.size === item.size);
+      if (sizeIndex !== -1) {
+        product.sizes[sizeIndex].stock -= item.quantity;
+        if (product.sizes[sizeIndex].stock < 0) product.sizes[sizeIndex].stock = 0;
+        await product.save();
+      }
     }
   }
 };
@@ -59,7 +55,6 @@ const placeOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
-    // Validate stock availability
     const stockCheck = await checkStockAvailability(items);
     if (!stockCheck.isAvailable) {
       console.log("Stock check failed:", stockCheck.message);
@@ -81,12 +76,10 @@ const placeOrder = async (req, res) => {
     const newOrder = new orderModel(orderData);
     await newOrder.save();
 
-    // Decrement stock for COD orders
     await decrementStock(orderData.items);
 
     await userModel.findByIdAndUpdate(userId, { cartData: {} });
 
-    // Send confirmation email to user
     const user = await userModel.findById(userId);
     if (user && user.email) {
       console.log(`Sending order confirmation to ${user.email} for order ${newOrder._id}`);
@@ -100,7 +93,6 @@ const placeOrder = async (req, res) => {
       console.log(`User or email not found for userId: ${userId}`);
     }
 
-    // Send notification email to admin
     const admin = await userModel.findOne({ role: 'admin' });
     if (admin && admin.email) {
       console.log(`Sending admin notification to ${admin.email} for order ${newOrder._id}`);
@@ -136,7 +128,6 @@ const placeOrderRazorpay = async (req, res) => {
       return res.status(400).json({ success: false, message: "Amount must be a positive number" });
     }
 
-    // Validate stock availability
     const stockCheck = await checkStockAvailability(items);
     if (!stockCheck.isAvailable) {
       console.log("Stock check failed:", stockCheck.message);
@@ -198,11 +189,9 @@ const verifyPayment = async (req, res) => {
       if (!order) {
         return res.status(404).json({ success: false, message: "Order not found" });
       }
-      // Decrement stock after payment verification for Razorpay
       await decrementStock(order.items);
       await userModel.findByIdAndUpdate(order.userId, { cartData: {} });
 
-      // Send confirmation email to user
       const user = await userModel.findById(order.userId);
       if (user && user.email) {
         console.log(`Sending order confirmation to ${user.email} for order ${order._id}`);
@@ -216,7 +205,6 @@ const verifyPayment = async (req, res) => {
         console.log(`User or email not found for userId: ${order.userId}`);
       }
 
-      // Send notification email to admin
       const admin = await userModel.findOne({ role: 'admin' });
       if (admin && admin.email) {
         console.log(`Sending admin notification to ${admin.email} for order ${order._id}`);
