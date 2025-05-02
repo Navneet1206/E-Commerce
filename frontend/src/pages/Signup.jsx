@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 import Title from '../components/Title';
 
 const Signup = () => {
-  const { backendUrl, setToken } = useContext(ShopContext);
+  const { backendUrl, setToken, mergeCart } = useContext(ShopContext);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -46,6 +46,7 @@ const Signup = () => {
         if (response.data.success) {
           setToken(response.data.token);
           localStorage.setItem('token', response.data.token);
+          await mergeCart(); // Merge local cart with backend cart
           toast.success('Signup successful');
           navigate('/');
         } else {

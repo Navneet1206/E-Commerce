@@ -1,7 +1,7 @@
 import express from 'express';
 import { loginUser, registerUser, adminLogin, sendOtp, sendResetCode, resetPassword, mergeCart } from '../controllers/userController.js';
 import authUser from '../middleware/auth.js';
-import { addAddress, updateAddress, deleteAddress, getAddresses } from '../controllers/userController.js';
+import { addAddress, updateAddress, deleteAddress, getAddresses, addToWishlist, removeFromWishlist, getWishlist, getAllWishlists } from '../controllers/userController.js';
 
 const userRouter = express.Router();
 
@@ -16,5 +16,10 @@ userRouter.get('/addresses', authUser, getAddresses);
 userRouter.post('/forget-password', sendResetCode);
 userRouter.post('/reset-password', resetPassword);
 userRouter.post('/merge-cart', authUser, mergeCart);
+userRouter.post('/wishlist/add', authUser, addToWishlist);
+userRouter.post('/wishlist/remove', authUser, removeFromWishlist);
+userRouter.get('/wishlist', authUser, getWishlist);
+userRouter.get('/admin/wishlists', authUser, getAllWishlists);
+
 
 export default userRouter;

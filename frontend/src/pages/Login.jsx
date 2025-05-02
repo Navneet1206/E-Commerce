@@ -27,7 +27,7 @@ const Login = () => {
       if (response.data.success) {
         setToken(response.data.token);
         localStorage.setItem('token', response.data.token);
-        await mergeCart(); // Merge local cart with backend cart
+        await mergeCart(); // Merge local cart with backend cart during login
         toast.success('Login successful');
         navigate('/');
       } else {

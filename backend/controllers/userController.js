@@ -252,4 +252,64 @@ const mergeCart = async (req, res) => {
   }
 };
 
-export { loginUser, registerUser, adminLogin, addAddress, updateAddress, deleteAddress, getAddresses, sendOtp, sendResetCode, resetPassword, mergeCart };
+
+
+const addToWishlist = async (req, res) => {
+  try {
+      const { productId } = req.body;
+      const userId = req.body.userId; // Set by authUser middleware
+      const user = await userModel.findById(userId);
+      if (!user) return res.json({ success: false, message: "User not found" });
+      if (user.wishlist.includes(productId)) return res.json({ success: false, message: "Product already in wishlist" });
+      user.wishlist.push(productId);
+      await user.save();
+      res.json({ success: true, message: "Product added to wishlist" });
+  } catch (error) {
+      console.log(error);
+      res.json({ success: false, message: error.message });
+  }
+};
+
+const removeFromWishlist = async (req, res) => {
+  try {
+      const { productId } = req.body;
+      const userId = req.body.userId;
+      const user = await userModel.findById(userId);
+      if (!user) return res.json({ success: false, message: "User not found" });
+      user.wishlist = user.wishlist.filter(id => id.toString() !== productId);
+      await user.save();
+      res.json({ success: true, message: "Product removed from wishlist" });
+  } catch (error) {
+      console.log(error);
+      res.json({ success: false, message: error.message });
+  }
+};
+
+const getWishlist = async (req, res) => {
+  try {
+      const userId = req.body.userId;
+      const user = await userModel.findById(userId).populate('wishlist');
+      if (!user) return res.json({ success: false, message: "User not found" });
+      res.json({ success: true, wishlist: user.wishlist });
+  } catch (error) {
+      console.log(error);
+      res.json({ success: false, message: error.message });
+  }
+};
+
+const getAllWishlists = async (req, res) => {
+  try {
+      const users = await userModel.find({}).populate('wishlist');
+      const wishlists = users.map(user => ({
+          userId: user._id,
+          userName: user.name,
+          wishlist: user.wishlist
+      }));
+      res.json({ success: true, wishlists });
+  } catch (error) {
+      console.log(error);
+      res.json({ success: false, message: error.message });
+  }
+};
+
+export { loginUser, registerUser, adminLogin, addAddress, updateAddress, deleteAddress, getAddresses, sendOtp, sendResetCode, resetPassword, mergeCart, addToWishlist, removeFromWishlist, getWishlist, getAllWishlists };

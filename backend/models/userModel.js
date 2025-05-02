@@ -27,6 +27,8 @@ const userSchema = new mongoose.Schema(
     ],
     resetPasswordCode: { type: String },
     resetPasswordExpires: { type: Date },
+    wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: 'product' }]
+ 
   },
   { minimize: false }
 );
