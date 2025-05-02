@@ -12,7 +12,7 @@ const Orders = () => {
   const loadOrderData = async () => {
     try {
       if (!token) return;
-      const response = await axios.post(`${backendUrl}/api/order/userOrders`, {}, { headers: { token } });
+      const response = await axios.post(`${backendUrl}/api/order/user-orders`, {}, { headers: { token } });
       if (response.data.success) {
         let allOrderItems = [];
         response.data.orders.map((order) => {
