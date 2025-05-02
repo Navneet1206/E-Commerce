@@ -12,7 +12,7 @@ import Wishlist from './pages/Wishlist';
 
 export const backendUrl = import.meta.env.VITE_BACKEND_URL
 console.log("Backend URL:", backendUrl);
-export const currency = '$';
+export const currency = '₹';
 
 const App = () => {
   const [token, setToken] = useState(localStorage.getItem('token')?localStorage.getItem('token'):''); 

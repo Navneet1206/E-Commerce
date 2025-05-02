@@ -6,9 +6,7 @@ import { ShopContext } from '../context/ShopContext';
 const NavBar = () => {
     const [visible, setVisible] = useState(false);
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-    const [searchOpen, setSearchOpen] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
-    const { getCartCount, token, setToken, setCartItems, products, setShowSearch } = useContext(ShopContext);
+    const { getCartCount, token, setToken, setCartItems } = useContext(ShopContext);
     const navigate = useNavigate();
 
     const logout = () => {
@@ -18,47 +16,31 @@ const NavBar = () => {
         navigate('/login');
     };
 
-    const handleSearch = (e) => {
-        e.preventDefault();
-        if (searchQuery.trim()) {
-            const filteredProducts = products.filter(product =>
-                (product.title && product.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                (product.category && product.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                (product.type && product.type.toLowerCase().includes(searchQuery.toLowerCase()))
-            );
-            setShowSearch(true);
-            navigate('/search', { state: { filteredProducts, query: searchQuery } });
-            setSearchQuery('');
-            setSearchOpen(false);
-            setVisible(false);
-        }
-    };
-
     const toggleProfileMenu = () => {
         setProfileMenuOpen(!profileMenuOpen);
     };
 
-    const toggleSearch = () => {
-        setSearchOpen(!searchOpen);
-        if (searchOpen) setSearchQuery('');
-    };
-
     return (
-        <nav className="bg-white shadow-lg sticky top-0 z-50">
+        <nav className="bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
                 {/* Logo */}
-                <Link to="/" className="flex items-center">
-                    <span className="text-xl sm:text-2xl font-bold text-indigo-800 transition-transform duration-300 hover:scale-105">ShopVibe</span>
+                <Link to="/" className="flex items-center space-x-2">
+                    <span className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent transition-transform duration-300 hover:scale-105">
+                        ShopVibe
+                    </span>
                 </Link>
 
                 {/* Navigation Links */}
-                <ul className="hidden lg:flex items-center gap-8 text-base font-medium text-gray-700">
+                <ul className="hidden lg:flex items-center gap-10 text-base font-medium text-gray-700">
                     <li>
                         <NavLink
                             to="/"
                             className={({ isActive }) =>
-                                `relative transition duration-300 ${isActive ? 'text-indigo-600 font-semibold after:absolute after:bottom-[-4px] after:left-0 after:w-full after:h-[2px] after:bg-indigo-600' : 'hover:text-indigo-600'}`
+                                `relative transition duration-300 ${
+                                    isActive 
+                                    ? 'text-indigo-600 font-semibold after:absolute after:bottom-[-4px] after:left-0 after:w-full after:h-[2px] after:bg-indigo-600' 
+                                    : 'hover:text-indigo-600 hover:after:absolute hover:after:bottom-[-4px] hover:after:left-0 hover:after:w-full hover:after:h-[2px] hover:after:bg-indigo-200'
+                                }`
                             }
                         >
                             HOME
@@ -68,7 +50,11 @@ const NavBar = () => {
                         <NavLink
                             to="/collection"
                             className={({ isActive }) =>
-                                `relative transition duration-300 ${isActive ? 'text-indigo-600 font-semibold after:absolute after:bottom-[-4px] after:left-0 after:w-full after:h-[2px] after:bg-indigo-600' : 'hover:text-indigo-600'}`
+                                `relative transition duration-300 ${
+                                    isActive 
+                                    ? 'text-indigo-600 font-semibold after:absolute after:bottom-[-4px] after:left-0 after:w-full after:h-[2px] after:bg-indigo-600' 
+                                    : 'hover:text-indigo-600 hover:after:absolute hover:after:bottom-[-4px] hover:after:left-0 hover:after:w-full hover:after:h-[2px] hover:after:bg-indigo-200'
+                                }`
                             }
                         >
                             COLLECTION
@@ -78,7 +64,11 @@ const NavBar = () => {
                         <NavLink
                             to="/about"
                             className={({ isActive }) =>
-                                `relative transition duration-300 ${isActive ? 'text-indigo-600 font-semibold after:absolute after:bottom-[-4px] after:left-0 after:w-full after:h-[2px] after:bg-indigo-600' : 'hover:text-indigo-600'}`
+                                `relative transition duration-300 ${
+                                    isActive 
+                                    ? 'text-indigo-600 font-semibold after:absolute after:bottom-[-4px] after:left-0 after:w-full after:h-[2px] after:bg-indigo-600' 
+                                    : 'hover:text-indigo-600 hover:after:absolute hover:after:bottom-[-4px] hover:after:left-0 hover:after:w-full hover:after:h-[2px] hover:after:bg-indigo-200'
+                                }`
                             }
                         >
                             ABOUT
@@ -88,7 +78,11 @@ const NavBar = () => {
                         <NavLink
                             to="/contact"
                             className={({ isActive }) =>
-                                `relative transition duration-300 ${isActive ? 'text-indigo-600 font-semibold after:absolute after:bottom-[-4px] after:left-0 after:w-full after:h-[2px] after:bg-indigo-600' : 'hover:text-indigo-600'}`
+                                `relative transition duration-300 ${
+                                    isActive 
+                                    ? 'text-indigo-600 font-semibold after:absolute after:bottom-[-4px] after:left-0 after:w-full after:h-[2px] after:bg-indigo-600' 
+                                    : 'hover:text-indigo-600 hover:after:absolute hover:after:bottom-[-4px] hover:after:left-0 hover:after:w-full hover:after:h-[2px] hover:after:bg-indigo-200'
+                                }`
                             }
                         >
                             CONTACT
@@ -96,68 +90,30 @@ const NavBar = () => {
                     </li>
                 </ul>
 
-                {/* Search and User Actions */}
-                <div className="flex items-center gap-3 sm:gap-4">
-                    {/* Search Bar */}
-                    <div className="flex items-center">
-                        <button
-                            onClick={searchOpen ? handleSearch : toggleSearch}
-                            className="p-1 rounded-full hover:bg-indigo-100 transition-transform duration-300 hover:scale-110"
-                            aria-label={searchOpen ? "Search" : "Open search"}
-                        >
-                            <img src={assets.search_icon} className="w-6 h-6 sm:w-7 sm:h-7" alt="Search" />
-                        </button>
-                        <form
-                            onSubmit={handleSearch}
-                            className={`flex items-center overflow-hidden transition-all duration-300 ${
-                                searchOpen ? 'w-28 sm:w-32 lg:w-64 opacity-100' : 'w-0 opacity-0'
-                            }`}
-                        >
-                            <div className="relative">
-                                <input
-                                    type="text"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    placeholder="Search..."
-                                    className="w-full py-1.5 pl-3 pr-8 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-700 text-sm"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={toggleSearch}
-                                    className="absolute right-2 top-1/2 transform -translate-y-1/2"
-                                    aria-label="Close search"
-                                >
-                                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                                    </svg>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-
+                {/* User Actions */}
+                <div className="flex items-center gap-4">
                     {/* Profile/Login */}
                     <div className="relative">
                         {token ? (
                             <>
                                 <button
                                     onClick={toggleProfileMenu}
-                                    className="flex items-center p-1 rounded-full hover:bg-indigo-100 transition-transform duration-300 hover:scale-110"
+                                    className="flex items-center p-1 rounded-full hover:bg-indigo-100 transition-all duration-300 hover:scale-110 relative"
                                     aria-label="Toggle user menu"
                                 >
                                     <img
                                         src={assets.profile_icon}
-                                        className="w-7 h-7 sm:w-8 sm:h-8 border-2 border-indigo-200 rounded-full"
+                                        className="w-8 h-8 border-2 border-indigo-100 rounded-full shadow-sm"
                                         alt="Profile"
                                     />
                                 </button>
                                 {profileMenuOpen && (
-                                    <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-xl opacity-0 animate-fadeIn">
+                                    <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-xl opacity-0 animate-fadeIn origin-top-right">
                                         <div className="py-2 text-gray-700 text-sm">
-                                        
                                             <Link
                                                 to="/orders"
                                                 onClick={() => setProfileMenuOpen(false)}
-                                                className="block px-4 py-2 hover:bg-indigo-50 hover:text-indigo-600"
+                                                className="block px-4 py-2.5 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
                                             >
                                                 My Orders
                                             </Link>
@@ -166,7 +122,7 @@ const NavBar = () => {
                                                     logout();
                                                     setProfileMenuOpen(false);
                                                 }}
-                                                className="w-full text-left px-4 py-2 hover:bg-red-50 hover:text-red-600"
+                                                className="w-full text-left px-4 py-2.5 hover:bg-red-50 hover:text-red-600 transition-colors"
                                             >
                                                 Logout
                                             </button>
@@ -177,7 +133,7 @@ const NavBar = () => {
                         ) : (
                             <Link
                                 to="/login"
-                                className="bg-indigo-600 text-white px-3 py-1.5 rounded-full hover:bg-indigo-700 transition-transform duration-300 hover:scale-105 text-sm"
+                                className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-5 py-2 rounded-full hover:scale-105 transition-transform duration-300 shadow-lg hover:shadow-indigo-100"
                             >
                                 Login
                             </Link>
@@ -186,9 +142,13 @@ const NavBar = () => {
 
                     {/* Cart */}
                     <Link to="/cart" className="relative">
-                        <div className="p-1 rounded-full hover:bg-indigo-100 transition-transform duration-300 hover:scale-110">
-                            <img src={assets.cart_icon} className="w-7 h-7 sm:w-8 sm:h-8" alt="Cart" />
-                            <span className="absolute -top-1 -right-1 bg-yellow-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+                        <div className="p-1.5 rounded-full hover:bg-indigo-100 transition-all duration-300 hover:scale-110">
+                            <img 
+                                src={assets.cart_icon} 
+                                className="w-8 h-8" 
+                                alt="Cart" 
+                            />
+                            <span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full shadow-sm">
                                 {getCartCount()}
                             </span>
                         </div>
@@ -197,35 +157,37 @@ const NavBar = () => {
                     {/* Mobile Menu Toggle */}
                     <button
                         onClick={() => setVisible(true)}
-                        className="lg:hidden p-1 rounded-full hover:bg-indigo-100 transition-transform duration-300 hover:scale-110"
+                        className="lg:hidden p-1.5 rounded-full hover:bg-indigo-100 transition-transform duration-300 hover:scale-110"
                         aria-label="Toggle menu"
                     >
-                        <img src={assets.menu_icon} className="w-7 h-7 sm:w-8 sm:h-8" alt="Menu" />
+                        <img src={assets.menu_icon} className="w-8 h-8" alt="Menu" />
                     </button>
                 </div>
             </div>
 
             {/* Mobile Menu */}
             <div
-                className={`fixed top-0 right-0 bottom-0 bg-white shadow-lg transition-transform duration-300 z-50 lg:hidden w-72 sm:w-80 ${
+                className={`fixed top-0 right-0 bottom-0 bg-white shadow-2xl transition-transform duration-300 z-50 lg:hidden w-80 ${
                     visible ? 'translate-x-0' : 'translate-x-full'
                 }`}
             >
                 <div className="flex flex-col h-full">
                     <button
                         onClick={() => setVisible(false)}
-                        className="flex items-center gap-2 p-4 bg-indigo-600 text-white"
+                        className="flex items-center gap-2 p-5 bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
                         aria-label="Close menu"
                     >
                         <img src={assets.dropdown_icon} className="h-5 rotate-180" alt="Close" />
-                        <span>Close</span>
+                        <span className="font-medium">Close Menu</span>
                     </button>
                     <div className="flex flex-col items-center justify-center flex-1 text-lg font-medium text-gray-700">
                         <NavLink
                             onClick={() => setVisible(false)}
                             to="/"
                             className={({ isActive }) =>
-                                `py-4 w-full text-center hover:bg-indigo-50 transition-colors duration-300 ${isActive ? 'text-indigo-600 font-semibold' : 'text-gray-700'}`
+                                `py-4 w-full text-center hover:bg-indigo-50 transition-colors ${
+                                    isActive ? 'text-indigo-600 font-semibold bg-indigo-50' : 'text-gray-700'
+                                }`
                             }
                         >
                             HOME
@@ -234,7 +196,9 @@ const NavBar = () => {
                             onClick={() => setVisible(false)}
                             to="/collection"
                             className={({ isActive }) =>
-                                `py-4 w-full text-center hover:bg-indigo-50 transition-colors duration-300 ${isActive ? 'text-indigo-600 font-semibold' : 'text-gray-700'}`
+                                `py-4 w-full text-center hover:bg-indigo-50 transition-colors ${
+                                    isActive ? 'text-indigo-600 font-semibold bg-indigo-50' : 'text-gray-700'
+                                }`
                             }
                         >
                             COLLECTION
@@ -243,7 +207,9 @@ const NavBar = () => {
                             onClick={() => setVisible(false)}
                             to="/about"
                             className={({ isActive }) =>
-                                `py-4 w-full text-center hover:bg-indigo-50 transition-colors duration-300 ${isActive ? 'text-indigo-600 font-semibold' : 'text-gray-700'}`
+                                `py-4 w-full text-center hover:bg-indigo-50 transition-colors ${
+                                    isActive ? 'text-indigo-600 font-semibold bg-indigo-50' : 'text-gray-700'
+                                }`
                             }
                         >
                             ABOUT
@@ -252,18 +218,19 @@ const NavBar = () => {
                             onClick={() => setVisible(false)}
                             to="/contact"
                             className={({ isActive }) =>
-                                `py-4 w-full text-center hover:bg-indigo-50 transition-colors duration-300 ${isActive ? 'text-indigo-600 font-semibold' : 'text-gray-700'}`
+                                `py-4 w-full text-center hover:bg-indigo-50 transition-colors ${
+                                    isActive ? 'text-indigo-600 font-semibold bg-indigo-50' : 'text-gray-700'
+                                }`
                             }
                         >
                             CONTACT
                         </NavLink>
                         {token && (
                             <>
-                               
                                 <Link
                                     onClick={() => setVisible(false)}
                                     to="/orders"
-                                    className="py-4 w-full text-center hover:bg-indigo-50 text-gray-700 transition-colors duration-300"
+                                    className="py-4 w-full text-center hover:bg-indigo-50 text-gray-700 transition-colors"
                                 >
                                     My Orders
                                 </Link>
@@ -272,7 +239,7 @@ const NavBar = () => {
                                         logout();
                                         setVisible(false);
                                     }}
-                                    className="py-4 w-full text-center hover:bg-red-50 text-red-600 transition-colors duration-300"
+                                    className="py-4 w-full text-center hover:bg-red-50 text-red-600 transition-colors"
                                 >
                                     Logout
                                 </button>
@@ -282,7 +249,7 @@ const NavBar = () => {
                 </div>
             </div>
 
-            {/* Inline CSS for Custom Animations */}
+            {/* Animation Styles */}
             <style>
                 {`
                     @keyframes fadeIn {
@@ -296,7 +263,7 @@ const NavBar = () => {
                         }
                     }
                     .animate-fadeIn {
-                        animation: fadeIn 0.3s ease-in forwards;
+                        animation: fadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
                     }
                 `}
             </style>
