@@ -144,7 +144,7 @@ const Product = () => {
                 className="w-full h-auto rounded-md border border-gray-300 transition-transform duration-300 group-hover:scale-105 sm:group-hover:scale-100 cursor-pointer"
                 alt="Main Product"
                 onError={() => setImage(assets.placeholder_image)}
-                onClick={() => window.innerWidth < 640 && setShowPopup(true)}
+                onClick={() => window.innerWidth < 1024 && setShowPopup(true)}
                 onMouseMove={handleMouseMove}
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
