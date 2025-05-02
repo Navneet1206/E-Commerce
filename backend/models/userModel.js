@@ -5,7 +5,7 @@ const userSchema = new mongoose.Schema(
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    phone: { type: String }, // Added phone field
+    phone: { type: String },
     cartData: { type: Object, default: {} },
     role: {
       type: String,
@@ -25,6 +25,8 @@ const userSchema = new mongoose.Schema(
         phone: { type: String, required: true },
       },
     ],
+    resetPasswordCode: { type: String },
+    resetPasswordExpires: { type: Date },
   },
   { minimize: false }
 );

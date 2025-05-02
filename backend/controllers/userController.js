@@ -181,4 +181,75 @@ const getAddresses = async (req, res) => {
   }
 };
 
-export { loginUser, registerUser, adminLogin, addAddress, updateAddress, deleteAddress, getAddresses, sendOtp };
+const sendResetCode = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await userModel.findOne({ email });
+    if (!user) {
+      return res.json({ success: false, message: "User not found" });
+    }
+    const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
+    const expires = Date.now() + 10 * 60 * 1000; // 10 minutes
+    user.resetPasswordCode = code;
+    user.resetPasswordExpires = expires;
+    await user.save();
+    await send2StepVerificationEmail(email, code);
+    res.json({ success: true, message: "Reset code sent" });
+  } catch (error) {
+    console.error("Send reset code error:", error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+    const user = await userModel.findOne({ email });
+    if (!user) {
+      return res.json({ success: false, message: "User not found" });
+    }
+    if (user.resetPasswordCode !== code || Date.now() > user.resetPasswordExpires) {
+      return res.json({ success: false, message: "Invalid or expired code" });
+    }
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    user.password = hashedPassword;
+    user.resetPasswordCode = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+    res.json({ success: true, message: "Password reset successfully" });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+const mergeCart = async (req, res) => {
+  try {
+    const { userId, localCart } = req.body;
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.json({ success: false, message: "User not found" });
+    }
+
+    // Merge local cart with backend cart
+    const mergedCart = { ...user.cartData };
+    for (const itemId in localCart) {
+      if (!mergedCart[itemId]) {
+        mergedCart[itemId] = {};
+      }
+      for (const size in localCart[itemId]) {
+        mergedCart[itemId][size] = (mergedCart[itemId][size] || 0) + localCart[itemId][size];
+      }
+    }
+
+    user.cartData = mergedCart;
+    await user.save();
+    res.json({ success: true, cartData: user.cartData });
+  } catch (error) {
+    console.error("Merge cart error:", error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+export { loginUser, registerUser, adminLogin, addAddress, updateAddress, deleteAddress, getAddresses, sendOtp, sendResetCode, resetPassword, mergeCart };

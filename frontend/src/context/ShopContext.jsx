@@ -186,6 +186,43 @@ const ShopContextProvider = (props) => {
     return totalAmount;
   };
 
+  const mergeCart = async () => {
+    if (token && Object.keys(cartItems).length > 0) {
+      try {
+        // Validate stock before merging
+        for (const itemId in cartItems) {
+          const product = products.find((p) => p._id === itemId);
+          if (!product) {
+            toast.error(`Product with ID ${itemId} not found`);
+            return;
+          }
+          for (const size in cartItems[itemId]) {
+            const sizeStock = product.sizes.find(s => s.size === size)?.stock || 0;
+            if (cartItems[itemId][size] > sizeStock) {
+              toast.error(`Not enough stock for size ${size} of product ${product.name}`);
+              return;
+            }
+          }
+        }
+
+        const response = await axios.post(
+          `${backendUrl}/api/user/merge-cart`,
+          { localCart: cartItems },
+          { headers: { token } }
+        );
+        if (response.data.success) {
+          setCartItems(response.data.cartData);
+          toast.success("Cart synchronized");
+        } else {
+          toast.error(response.data.message);
+        }
+      } catch (error) {
+        console.error("Merge cart error:", error);
+        toast.error(error.message);
+      }
+    }
+  };
+
   useEffect(() => {
     getProductsData();
   }, []);
@@ -216,6 +253,7 @@ const ShopContextProvider = (props) => {
     setToken,
     setProducts,
     isLoading,
+    mergeCart,
   };
 
   return <ShopContext.Provider value={value}>{props.children}</ShopContext.Provider>;

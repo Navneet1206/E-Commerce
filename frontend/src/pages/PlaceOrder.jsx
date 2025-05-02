@@ -1,4 +1,3 @@
-// frontend/src/pages/PlaceOrder.jsx
 import React, { useContext, useState, useEffect } from 'react';
 import Title from '../components/Title';
 import CartTotal from '../components/CartTotal';
@@ -34,6 +33,14 @@ const PlaceOrder = () => {
     country: '',
     phone: ''
   });
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!token) {
+      toast.info('Please log in to place an order');
+      navigate('/login');
+    }
+  }, [token, navigate]);
 
   useEffect(() => {
     const script = document.createElement('script');
@@ -306,7 +313,7 @@ const PlaceOrder = () => {
               <input required onChange={onChangeHandler} name='zipcode' value={formData.zipcode} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="number" placeholder='Zipcode' />
               <input required onChange={onChangeHandler} name='country' value={formData.country} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='Country' />
             </div>
-            <input required onChange={onChangeHandler} name='phone' value={formData.phone} className='border border-gray-300 rounded py-1.5 px-3.5 w-full mt-3' type="number" placeholder='Phone' />
+  <input required onChange={onChangeHandler} name='phone' value={formData.phone} className='border border-gray-300 rounded py-1.5 px-3.5 w-full mt-3' type="number" placeholder='Phone' />
             <div className="flex items-center gap-2 mt-4">
               <input type="checkbox" checked={saveAddress} onChange={(e) => setSaveAddress(e.target.checked)} />
               <label className="text-gray-700">Save this address for future use</label>
