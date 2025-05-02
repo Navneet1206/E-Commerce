@@ -19,6 +19,7 @@ const Orders = lazy(() => import('./pages/Orders'));
 const Collection = lazy(() => import('./pages/Collection'));
 const Signup = lazy(() => import('./pages/Signup')); 
 const TrackOrder = lazy(() => import('./pages/TrackOrder'));
+const Wishlist = lazy(() => import('./pages/Wishlist'));
 
 const App = () => {
   return (
@@ -41,6 +42,7 @@ const App = () => {
           <Route path="/orders" element={<Orders />} />
           <Route path="/order/track/:idoforder" element={<TrackOrder />} />
           <Route path="/search" element={<SearchResults />} />
+          <Route path="/wishlist" element={<Wishlist />} />
         </Routes>
       </Suspense>
       <Footer />

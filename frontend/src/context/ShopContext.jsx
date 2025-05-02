@@ -17,6 +17,8 @@ const ShopContextProvider = (props) => {
   const [products, setProducts] = useState([]);
   const [token, setToken] = useState(localStorage.getItem("token") || "");
   const [isLoading, setIsLoading] = useState(true);
+  const [wishlist, setWishlist] = useState([]);
+  const [localWishlist, setLocalWishlist] = useState(JSON.parse(localStorage.getItem('localWishlist')) || []);
   const navigate = useNavigate();
 
   try {
@@ -58,6 +60,42 @@ const ShopContextProvider = (props) => {
     } catch (error) {
       console.error("Error fetching cart:", error);
       toast.error(error.message);
+    }
+  };
+
+  const getUserWishlist = async () => {
+    try {
+      const response = await axios.get(`${backendUrl}/api/user/wishlist`, { headers: { token } });
+      if (response.data.success) {
+        setWishlist(response.data.wishlist.map(product => product._id));
+      } else {
+        toast.error(response.data.message);
+      }
+    } catch (error) {
+      console.error("Error fetching wishlist:", error);
+      toast.error(error.message);
+    }
+  };
+
+  const mergeWishlist = async () => {
+    if (token && localWishlist.length > 0) {
+      try {
+        const response = await axios.post(
+          `${backendUrl}/api/user/wishlist/add-multiple`,
+          { productIds: localWishlist },
+          { headers: { token } }
+        );
+        if (response.data.success) {
+          setLocalWishlist([]);
+          localStorage.removeItem('localWishlist');
+          await getUserWishlist();
+        } else {
+          toast.error(response.data.message);
+        }
+      } catch (error) {
+        console.error("Merge wishlist error:", error);
+        toast.error(error.message);
+      }
     }
   };
 
@@ -120,6 +158,10 @@ const ShopContextProvider = (props) => {
       }
     }
     return totalCount;
+  };
+
+  const getWishlistCount = () => {
+    return token ? wishlist.length : localWishlist.length;
   };
 
   const updateQuantity = async (itemId, size, quantity) => {
@@ -189,7 +231,6 @@ const ShopContextProvider = (props) => {
   const mergeCart = async () => {
     if (token && Object.keys(cartItems).length > 0) {
       try {
-        // Validate stock before merging
         for (const itemId in cartItems) {
           const product = products.find((p) => p._id === itemId);
           if (!product) {
@@ -223,6 +264,68 @@ const ShopContextProvider = (props) => {
     }
   };
 
+  const addToWishlist = async (productId) => {
+    if (token) {
+      try {
+        const response = await axios.post(
+          `${backendUrl}/api/user/wishlist/add`,
+          { productId },
+          { headers: { token } }
+        );
+        if (response.data.success) {
+          setWishlist(prev => [...prev, productId]);
+          toast.success("Added to wishlist");
+        } else {
+          toast.error(response.data.message);
+        }
+      } catch (error) {
+        toast.error(error.message);
+      }
+    } else {
+      if (!localWishlist.includes(productId)) {
+        const newLocalWishlist = [...localWishlist, productId];
+        setLocalWishlist(newLocalWishlist);
+        localStorage.setItem('localWishlist', JSON.stringify(newLocalWishlist));
+        toast.success("Added to local wishlist");
+      } else {
+        toast.info("Product already in local wishlist");
+      }
+    }
+  };
+
+  const removeFromWishlist = async (productId) => {
+    if (token) {
+      try {
+        const response = await axios.post(
+          `${backendUrl}/api/user/wishlist/remove`,
+          { productId },
+          { headers: { token } }
+        );
+        if (response.data.success) {
+          setWishlist(prev => prev.filter(id => id !== productId));
+          toast.success("Removed from wishlist");
+        } else {
+          toast.error(response.data.message);
+        }
+      } catch (error) {
+        toast.error(error.message);
+      }
+    } else {
+      const newLocalWishlist = localWishlist.filter(id => id !== productId);
+      setLocalWishlist(newLocalWishlist);
+      localStorage.setItem('localWishlist', JSON.stringify(newLocalWishlist));
+      toast.success("Removed from local wishlist");
+    }
+  };
+
+  const isInWishlist = (productId) => {
+    if (token) {
+      return wishlist.includes(productId);
+    } else {
+      return localWishlist.includes(productId);
+    }
+  };
+
   useEffect(() => {
     getProductsData();
   }, []);
@@ -230,6 +333,10 @@ const ShopContextProvider = (props) => {
   useEffect(() => {
     if (token) {
       getUserCart(token);
+      getUserWishlist();
+      mergeWishlist();
+    } else {
+      setWishlist([]);
     }
   }, [token]);
 
@@ -254,6 +361,16 @@ const ShopContextProvider = (props) => {
     setProducts,
     isLoading,
     mergeCart,
+    wishlist,
+    setWishlist,
+    localWishlist,
+    setLocalWishlist,
+    addToWishlist,
+    removeFromWishlist,
+    isInWishlist,
+    getUserWishlist,
+    mergeWishlist,
+    getWishlistCount
   };
 
   return <ShopContext.Provider value={value}>{props.children}</ShopContext.Provider>;

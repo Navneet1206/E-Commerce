@@ -7,7 +7,7 @@ import { toast } from 'react-toastify';
 
 const Product = () => {
   const { productId } = useParams();
-  const { products, currency, addToCart, isLoading, token, getProductsData } = useContext(ShopContext);
+  const { products, currency, addToCart, isLoading, token, getProductsData, addToWishlist, removeFromWishlist, isInWishlist } = useContext(ShopContext);
   const [productData, setProductData] = useState(null);
   const [image, setImage] = useState("");
   const [size, setSize] = useState("");
@@ -28,6 +28,9 @@ const Product = () => {
     if (product) {
       setProductData(product);
       setImage(product.images?.[0] || assets.placeholder_image);
+      // Select the first size with stock
+      const firstAvailableSize = product.sizes.find((s) => s.stock > 0)?.size;
+      setSize(firstAvailableSize || "");
       console.log("Fetched Product Data:", product);
     } else {
       setProductData(null);
@@ -52,7 +55,7 @@ const Product = () => {
     setZoomPosition({ x, y });
   };
 
-  const selectedSizeStock = size ? (productData?.sizes.find(s => s.size === size)?.stock || 0) : 0;
+  const selectedSizeStock = size ? (productData?.sizes.find((s) => s.size === size)?.stock || 0) : 0;
 
   const handleQuantityChange = (e) => {
     const value = parseInt(e.target.value, 10);
@@ -162,7 +165,7 @@ const Product = () => {
                   backgroundPosition: `${zoomPosition.x}% ${zoomPosition.y}%`,
                   backgroundColor: '#fff',
                   opacity: isZoomActive ? 1 : 0,
-                  backgroundRepeat: 'no-repeat' // Ensure no tiling of the image
+                  backgroundRepeat: 'no-repeat'
                 }}
               ></div>
             </div>
@@ -176,22 +179,44 @@ const Product = () => {
             <span className="text-red-600 font-bold text-3xl">{formattedPrice}</span>
             <span className="text-green-600 text-sm font-medium">Save {discountPercent}%</span>
           </div>
-          <p className="mt-2 text-gray-600">Available stock for size {size || 'N/A'}: {selectedSizeStock}</p>
+          <p className="mt-2 text-gray-600">
+            {size
+              ? `Available stock for size ${size}: ${selectedSizeStock}`
+              : "Please select a size"}
+          </p>
           <div className="flex flex-col gap-4 my-8">
             <p className="text-gray-700 font-medium">Select Size</p>
             <div className="flex gap-2 flex-wrap">
               {productData.sizes && Array.isArray(productData.sizes) ? (
                 productData.sizes.map((item, index) => (
                   <button
+                    key={index}
                     onClick={(e) => {
                       e.stopPropagation();
                       console.log("Size clicked:", item.size);
                       setSize(item.size);
                     }}
-                    key={index}
-                    className={`bg-gray-100 py-2 px-4 border rounded-md cursor-pointer ${item.size === size ? "border-blue-500" : "border-gray-300"} hover:bg-gray-200 relative z-30`}
+                    className={`relative py-2 px-4 border rounded-md cursor-pointer transition-all duration-300 ease-in-out transform hover:scale-105 ${
+                      item.size === size
+                        ? "border-blue-500 bg-blue-50"
+                        : item.stock > 0
+                        ? "border-gray-300 bg-gray-100 hover:bg-gray-200"
+                        : "border-gray-300 bg-gray-100 opacity-75"
+                    }`}
+                    disabled={item.stock === 0}
                   >
-                    {item.size}
+                    <span
+                      className={`relative z-10 ${
+                        item.stock === 0 ? "line-through text-gray-500" : "text-gray-800"
+                      }`}
+                    >
+                      {item.size}
+                    </span>
+                    {item.stock === 0 && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-full h-px bg-gray-500 transform rotate-12"></div>
+                      </div>
+                    )}
                   </button>
                 ))
               ) : (
@@ -205,9 +230,9 @@ const Product = () => {
                   onClick={(e) => {
                     e.stopPropagation();
                     console.log("Decrement clicked, current quantity:", quantity);
-                    setQuantity(prev => Math.max(prev - 1, 0));
+                    setQuantity((prev) => Math.max(prev - 1, 0));
                   }}
-                  className="px-2 py-1 border border-gray-300 rounded-md bg-gray-100 hover:bg-gray-200 disabled:opacity-50 cursor-pointer relative z-30"
+                  className="px-2 py-1 border border-gray-300 rounded-md bg-gray-100 hover:bg-gray-200 disabled:opacity-50 cursor-pointer relative z-30 transition-transform duration-200 hover:scale-110"
                   disabled={quantity <= 0 || selectedSizeStock === 0 || !size}
                 >
                   -
@@ -225,9 +250,9 @@ const Product = () => {
                   onClick={(e) => {
                     e.stopPropagation();
                     console.log("Increment clicked, current quantity:", quantity, "stock:", selectedSizeStock);
-                    setQuantity(prev => (prev + 1 <= selectedSizeStock ? prev + 1 : prev));
+                    setQuantity((prev) => (prev + 1 <= selectedSizeStock ? prev + 1 : prev));
                   }}
-                  className="px-2 py-1 border border-gray-300 rounded-md bg-gray-100 hover:bg-gray-200 disabled:opacity-50 cursor-pointer relative z-30"
+                  className="px-2 py-1 border border-gray-300 rounded-md bg-gray-100 hover:bg-gray-200 disabled:opacity-50 cursor-pointer relative z-30 transition-transform duration-200 hover:scale-110"
                   disabled={quantity >= selectedSizeStock || selectedSizeStock === 0 || !size}
                 >
                   +
@@ -235,8 +260,8 @@ const Product = () => {
               </div>
             </div>
           </div>
-          {selectedSizeStock > 0 ? (
-            <div className="flex gap-4">
+          {size && selectedSizeStock > 0 ? (
+            <div className="flex gap-4 flex-wrap">
               <button
                 onClick={handleAddToCart}
                 className="bg-blue-600 text-white px-4 sm:px-8 py-2 sm:py-3 rounded-md text-xs sm:text-sm hover:bg-blue-700 transition-colors cursor-pointer relative z-30"
@@ -251,9 +276,26 @@ const Product = () => {
               >
                 BUY NOW
               </button>
+              {isInWishlist(productData._id) ? (
+                <button
+                  onClick={() => removeFromWishlist(productData._id)}
+                  className="bg-red-600 text-white px-4 sm:px-8 py-2 sm:py-3 rounded-md text-xs sm:text-sm hover:bg-red-700 transition-colors cursor-pointer relative z-30"
+                >
+                  Remove from Wishlist
+                </button>
+              ) : (
+                <button
+                  onClick={() => addToWishlist(productData._id)}
+                  className="bg-yellow-600 text-white px-4 sm:px-8 py-2 sm:py-3 rounded-md text-xs sm:text-sm hover:bg-yellow-700 transition-colors cursor-pointer relative z-30"
+                >
+                  Add to Wishlist
+                </button>
+              )}
             </div>
           ) : (
-            <p className="text-red-500 font-bold">Out of Stock for selected size</p>
+            <p className="text-red-500 font-bold">
+              {size ? "Out of Stock for selected size" : "Please select a size"}
+            </p>
           )}
           <hr className="mt-8 sm:w-4/5 border-gray-300" />
           <div className="text-sm text-gray-600 mt-5 flex flex-col gap-1">

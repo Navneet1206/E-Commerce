@@ -232,7 +232,6 @@ const mergeCart = async (req, res) => {
       return res.json({ success: false, message: "User not found" });
     }
 
-    // Merge local cart with backend cart
     const mergedCart = { ...user.cartData };
     for (const itemId in localCart) {
       if (!mergedCart[itemId]) {
@@ -252,64 +251,117 @@ const mergeCart = async (req, res) => {
   }
 };
 
-
-
 const addToWishlist = async (req, res) => {
   try {
-      const { productId } = req.body;
-      const userId = req.body.userId; // Set by authUser middleware
-      const user = await userModel.findById(userId);
-      if (!user) return res.json({ success: false, message: "User not found" });
-      if (user.wishlist.includes(productId)) return res.json({ success: false, message: "Product already in wishlist" });
-      user.wishlist.push(productId);
-      await user.save();
-      res.json({ success: true, message: "Product added to wishlist" });
+    const { productId } = req.body;
+    const userId = req.body.userId; // Set by authUser middleware
+    const user = await userModel.findById(userId);
+    if (!user) return res.json({ success: false, message: "User not found" });
+    if (user.wishlist.includes(productId)) return res.json({ success: false, message: "Product already in wishlist" });
+    user.wishlist.push(productId);
+    await user.save();
+    res.json({ success: true, message: "Product added to wishlist" });
   } catch (error) {
-      console.log(error);
-      res.json({ success: false, message: error.message });
+    console.log(error);
+    res.json({ success: false, message: error.message });
   }
 };
 
 const removeFromWishlist = async (req, res) => {
   try {
-      const { productId } = req.body;
-      const userId = req.body.userId;
-      const user = await userModel.findById(userId);
-      if (!user) return res.json({ success: false, message: "User not found" });
-      user.wishlist = user.wishlist.filter(id => id.toString() !== productId);
-      await user.save();
-      res.json({ success: true, message: "Product removed from wishlist" });
+    const { productId } = req.body;
+    const userId = req.body.userId;
+    const user = await userModel.findById(userId);
+    if (!user) return res.json({ success: false, message: "User not found" });
+    user.wishlist = user.wishlist.filter(id => id.toString() !== productId);
+    await user.save();
+    res.json({ success: true, message: "Product removed from wishlist" });
   } catch (error) {
-      console.log(error);
-      res.json({ success: false, message: error.message });
+    console.log(error);
+    res.json({ success: false, message: error.message });
   }
 };
 
 const getWishlist = async (req, res) => {
   try {
-      const userId = req.body.userId;
-      const user = await userModel.findById(userId).populate('wishlist');
-      if (!user) return res.json({ success: false, message: "User not found" });
-      res.json({ success: true, wishlist: user.wishlist });
+    const userId = req.body.userId;
+    const user = await userModel.findById(userId).populate('wishlist');
+    if (!user) return res.json({ success: false, message: "User not found" });
+    res.json({ success: true, wishlist: user.wishlist });
   } catch (error) {
-      console.log(error);
-      res.json({ success: false, message: error.message });
+    console.log(error);
+    res.json({ success: false, message: error.message });
   }
 };
 
 const getAllWishlists = async (req, res) => {
   try {
-      const users = await userModel.find({}).populate('wishlist');
-      const wishlists = users.map(user => ({
-          userId: user._id,
-          userName: user.name,
-          wishlist: user.wishlist
-      }));
-      res.json({ success: true, wishlists });
+    const users = await userModel.find({}).populate('wishlist');
+    const wishlists = users.map(user => ({
+      userId: user._id,
+      userName: user.name,
+      wishlist: user.wishlist
+    }));
+    res.json({ success: true, wishlists });
   } catch (error) {
-      console.log(error);
-      res.json({ success: false, message: error.message });
+    console.log(error);
+    res.json({ success: false, message: error.message });
   }
 };
 
-export { loginUser, registerUser, adminLogin, addAddress, updateAddress, deleteAddress, getAddresses, sendOtp, sendResetCode, resetPassword, mergeCart, addToWishlist, removeFromWishlist, getWishlist, getAllWishlists };
+const getWishlistedProducts = async (req, res) => {
+  try {
+    const result = await userModel.aggregate([
+      { $unwind: "$wishlist" },
+      { $group: { _id: "$wishlist", count: { $sum: 1 } } },
+      { $lookup: { from: "products", localField: "_id", foreignField: "_id", as: "product" } },
+      { $unwind: "$product" },
+      { $project: { 
+        productId: "$_id", 
+        name: "$product.name", 
+        wishlistCount: "$count", 
+        sizes: "$product.sizes" 
+      } },
+      { $sort: { wishlistCount: -1 } }
+    ]);
+    res.json({ success: true, wishlistedProducts: result });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+const addMultipleToWishlist = async (req, res) => {
+  try {
+    const { productIds } = req.body;
+    const user = await userModel.findById(req.body.userId);
+    if (!user) return res.json({ success: false, message: "User not found" });
+    const newWishlist = [...new Set([...user.wishlist, ...productIds])];
+    user.wishlist = newWishlist;
+    await user.save();
+    res.json({ success: true, message: "Wishlist updated" });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+export { 
+  loginUser, 
+  registerUser, 
+  adminLogin, 
+  addAddress, 
+  updateAddress, 
+  deleteAddress, 
+  getAddresses, 
+  sendOtp, 
+  sendResetCode, 
+  resetPassword, 
+  mergeCart, 
+  addToWishlist, 
+  removeFromWishlist, 
+  getWishlist, 
+  getAllWishlists,
+  getWishlistedProducts,
+  addMultipleToWishlist 
+};

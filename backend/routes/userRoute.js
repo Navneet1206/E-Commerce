@@ -1,7 +1,8 @@
 import express from 'express';
 import { loginUser, registerUser, adminLogin, sendOtp, sendResetCode, resetPassword, mergeCart } from '../controllers/userController.js';
 import authUser from '../middleware/auth.js';
-import { addAddress, updateAddress, deleteAddress, getAddresses, addToWishlist, removeFromWishlist, getWishlist, getAllWishlists } from '../controllers/userController.js';
+import adminAuth from '../middleware/adminAuth.js';
+import { addAddress, updateAddress, deleteAddress, getAddresses, addToWishlist, removeFromWishlist, getWishlist, getAllWishlists, getWishlistedProducts, addMultipleToWishlist } from '../controllers/userController.js';
 
 const userRouter = express.Router();
 
@@ -20,6 +21,7 @@ userRouter.post('/wishlist/add', authUser, addToWishlist);
 userRouter.post('/wishlist/remove', authUser, removeFromWishlist);
 userRouter.get('/wishlist', authUser, getWishlist);
 userRouter.get('/admin/wishlists', authUser, getAllWishlists);
-
+userRouter.get('/wishlists/products', adminAuth, getWishlistedProducts);
+userRouter.post('/wishlist/add-multiple', authUser, addMultipleToWishlist);
 
 export default userRouter;
