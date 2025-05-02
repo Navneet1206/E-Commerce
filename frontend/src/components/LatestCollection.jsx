@@ -8,7 +8,7 @@ const LatestCollection = () => {
 
   useEffect(() => {
     if (products && products.length > 0) {
-      setLatestProducts(products.slice(0, 15)); // Show 4 products for a grid layout
+      setLatestProducts(products.slice(0, 15));
     }
   }, [products]);
 
@@ -27,7 +27,6 @@ const LatestCollection = () => {
   return (
     <div className="py-10 bg-white">
       <div className="container mx-auto px-4">
-        {/* Product Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {latestProducts.map((product) => (
             <ProductCard
@@ -37,8 +36,6 @@ const LatestCollection = () => {
             />
           ))}
         </div>
-
-        {/* View All Button */}
         <div className="text-center mt-6">
           <button
             onClick={handleViewAllClick}
@@ -58,12 +55,11 @@ const ProductCard = ({ product, currency }) => {
   const {
     _id = "",
     name = "",
-    price = 799.00, // Default discounted price
+    price = 799.00,
     images = [],
     stock = 1
   } = product || {};
 
-  // Calculate original price based on 20% discount
   const discountPercentage = 0.20;
   const originalPrice = price / (1 - discountPercentage);
 
@@ -89,8 +85,9 @@ const ProductCard = ({ product, currency }) => {
   const discountPercent = hasValidPrices ? Math.round(discountPercentage * 100) : 0;
 
   return (
+    // *** Updated className to include card-clip for unique shape ***
     <div
-      className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer group"
+      className="bg-white card-clip overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer group"
       onClick={handleProductClick}
     >
       <div className="relative overflow-hidden" style={{ paddingTop: '125%' }}>
@@ -109,7 +106,6 @@ const ProductCard = ({ product, currency }) => {
           }}
         />
       </div>
-
       <div className="p-3">
         <div className="mb-2">
           <h3 className="text-gray-800 font-medium text-sm truncate group-hover:text-red-600 transition-colors duration-300">
@@ -119,7 +115,6 @@ const ProductCard = ({ product, currency }) => {
             MY STORE
           </p>
         </div>
-
         <div className="flex items-center gap-2">
           {hasValidPrices && (
             <span className="text-gray-500 line-through text-sm group-hover:text-gray-400 transition-colors duration-300">
