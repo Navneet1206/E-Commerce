@@ -6,6 +6,7 @@ import Razorpay from "razorpay";
 import crypto from "crypto";
 import dotenv from "dotenv";
 import CouponUsage from "../models/couponUsageModel.js";
+import Discount from "../models/Discount.js";
 import { sendOrderUpdateEmail, sendOrderBookingEmail, sendOrderNotificationToAdmin } from "../config/sendmessage.js";
 import PDFDocument from 'pdfkit';
 
@@ -113,11 +114,43 @@ const validateCouponEndpoint = async (req, res) => {
   }
 };
 
+const getDiscountedPrice = async (price, userId) => {
+  const globalDiscounts = await Discount.find({ type: 'global' });
+  const userDiscounts = userId ? await Discount.find({ type: 'user', userId }) : [];
+  
+  let maxDiscount = 0;
+  for (const discount of userDiscounts) {
+    if (price >= discount.minPrice && price <= discount.maxPrice) {
+      maxDiscount = Math.max(maxDiscount, discount.percentage);
+    }
+  }
+  if (maxDiscount === 0) {
+    for (const discount of globalDiscounts) {
+      if (price >= discount.minPrice && price <= discount.maxPrice) {
+        maxDiscount = Math.max(maxDiscount, discount.percentage);
+      }
+    }
+  }
+  
+  return maxDiscount > 0 ? price * (1 - maxDiscount / 100) : price;
+};
+
+const calculateOrderTotal = async (items, userId) => {
+  let total = 0;
+  for (const item of items) {
+    const product = await productModel.findById(item._id);
+    if (!product) throw new Error(`Product ${item._id} not found`);
+    const discountedPrice = await getDiscountedPrice(product.price, userId);
+    total += discountedPrice * item.quantity;
+  }
+  return total;
+};
+
 const placeOrder = async (req, res) => {
   try {
-    const { userId, items, amount, address, couponCode } = req.body;
+    const { userId, items, address, couponCode } = req.body;
 
-    if (!userId || !items || !amount || !address) {
+    if (!userId || !items || !address) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
@@ -126,6 +159,7 @@ const placeOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: stockCheck.message });
     }
 
+    let totalAmount = await calculateOrderTotal(items, userId);
     let discount = 0;
     if (couponCode) {
       const validation = await validateCoupon(couponCode, userId, items);
@@ -137,7 +171,7 @@ const placeOrder = async (req, res) => {
       }
     }
 
-    const finalAmount = amount - discount;
+    const finalAmount = totalAmount - discount;
 
     const deliveryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const orderData = {
@@ -179,14 +213,10 @@ const placeOrder = async (req, res) => {
 
 const placeOrderRazorpay = async (req, res) => {
   try {
-    const { userId, items, amount, address, couponCode } = req.body;
+    const { userId, items, address, couponCode } = req.body;
 
-    if (!userId || !items || !amount || !address) {
+    if (!userId || !items || !address) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
-    }
-
-    if (typeof amount !== "number" || amount <= 0) {
-      return res.status(400).json({ success: false, message: "Amount must be a positive number" });
     }
 
     const stockCheck = await checkStockAvailability(items);
@@ -194,6 +224,7 @@ const placeOrderRazorpay = async (req, res) => {
       return res.status(400).json({ success: false, message: stockCheck.message });
     }
 
+    let totalAmount = await calculateOrderTotal(items, userId);
     let discount = 0;
     if (couponCode) {
       const validation = await validateCoupon(couponCode, userId, items);
@@ -204,7 +235,11 @@ const placeOrderRazorpay = async (req, res) => {
       }
     }
 
-    const finalAmount = amount - discount;
+    const finalAmount = totalAmount - discount;
+
+    if (typeof finalAmount !== "number" || finalAmount <= 0) {
+      return res.status(400).json({ success: false, message: "Amount must be a positive number" });
+    }
 
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
       return res.status(500).json({ success: false, message: "Razorpay configuration error" });

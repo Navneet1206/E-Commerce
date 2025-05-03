@@ -7,7 +7,7 @@ import { toast } from 'react-toastify';
 
 const Product = () => {
   const { productId } = useParams();
-  const { products, currency, addToCart, isLoading, token, getProductsData, addToWishlist, removeFromWishlist, isInWishlist } = useContext(ShopContext);
+  const { products, currency, addToCart, isLoading, token, getProductsData, addToWishlist, removeFromWishlist, isInWishlist, getDiscountedPrice } = useContext(ShopContext);
   const [productData, setProductData] = useState(null);
   const [image, setImage] = useState("");
   const [size, setSize] = useState("");
@@ -28,7 +28,6 @@ const Product = () => {
     if (product) {
       setProductData(product);
       setImage(product.images?.[0] || assets.placeholder_image);
-      // Select the first size with stock
       const firstAvailableSize = product.sizes.find((s) => s.stock > 0)?.size;
       setSize(firstAvailableSize || "");
       console.log("Fetched Product Data:", product);
@@ -111,11 +110,12 @@ const Product = () => {
     return <div className="text-center py-10 text-gray-600">Product not found</div>;
   }
 
-  const discountPercentage = 0.20;
-  const originalPrice = productData.price / (1 - discountPercentage);
-  const formattedOriginalPrice = `${currency}${originalPrice.toFixed(2)}`;
-  const formattedPrice = `${currency}${productData.price.toFixed(2)}`;
-  const discountPercent = Math.round(discountPercentage * 100);
+  const originalPrice = productData.price;
+  const discountedPrice = getDiscountedPrice(originalPrice);
+  const hasDiscount = discountedPrice < originalPrice;
+  const discountPercent = hasDiscount ? Math.round(((originalPrice - discountedPrice) / originalPrice) * 100) : 0;
+  const formattedOriginalPrice = hasDiscount ? `${currency}${originalPrice.toFixed(2)}` : '';
+  const formattedPrice = `${currency}${discountedPrice.toFixed(2)}`;
 
   return (
     <div className="border-t-2 pt-10 transition-opacity ease-in duration-500 opacity-100 bg-white rounded-lg shadow-md p-6">
@@ -175,9 +175,13 @@ const Product = () => {
         <div className="flex-1 relative z-20 min-w-[300px]">
           <h1 className="font-medium text-2xl mt-2 text-gray-800">{productData.name}</h1>
           <div className="mt-5 flex items-center gap-2">
-            <span className="text-gray-500 line-through text-sm">{formattedOriginalPrice}</span>
+            {hasDiscount && (
+              <span className="text-gray-500 line-through text-sm">{formattedOriginalPrice}</span>
+            )}
             <span className="text-red-600 font-bold text-3xl">{formattedPrice}</span>
-            <span className="text-green-600 text-sm font-medium">Save {discountPercent}%</span>
+            {hasDiscount && (
+              <span className="text-green-600 text-sm font-medium">Save {discountPercent}%</span>
+            )}
           </div>
           <p className="mt-2 text-gray-600">
             {size

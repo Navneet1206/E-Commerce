@@ -19,6 +19,8 @@ const ShopContextProvider = (props) => {
   const [isLoading, setIsLoading] = useState(true);
   const [wishlist, setWishlist] = useState([]);
   const [localWishlist, setLocalWishlist] = useState(JSON.parse(localStorage.getItem('localWishlist')) || []);
+  const [globalDiscounts, setGlobalDiscounts] = useState([]);
+  const [userDiscounts, setUserDiscounts] = useState([]);
   const navigate = useNavigate();
 
   try {
@@ -43,6 +45,43 @@ const ShopContextProvider = (props) => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const fetchDiscounts = async () => {
+    if (!token) {
+      setGlobalDiscounts([]);
+      setUserDiscounts([]);
+      return;
+    }
+    try {
+      const response = await axios.get(`${backendUrl}/api/discount/applicable`, { headers: { token } });
+      if (response.data.success) {
+        setGlobalDiscounts(response.data.globalDiscounts);
+        setUserDiscounts(response.data.userDiscounts);
+      } else {
+        toast.error(response.data.message);
+      }
+    } catch (error) {
+      console.error('Error fetching discounts:', error);
+      toast.error(error.message);
+    }
+  };
+
+  const getDiscountedPrice = (price) => {
+    let maxDiscount = 0;
+    for (const discount of userDiscounts) {
+      if (price >= discount.minPrice && price <= discount.maxPrice) {
+        maxDiscount = Math.max(maxDiscount, discount.percentage);
+      }
+    }
+    if (maxDiscount === 0) {
+      for (const discount of globalDiscounts) {
+        if (price >= discount.minPrice && price <= discount.maxPrice) {
+          maxDiscount = Math.max(maxDiscount, discount.percentage);
+        }
+      }
+    }
+    return maxDiscount > 0 ? price * (1 - maxDiscount / 100) : price;
   };
 
   const getUserCart = async (userToken) => {
@@ -215,10 +254,11 @@ const ShopContextProvider = (props) => {
     for (const items in cartItems) {
       let itemInfo = products.find((product) => product._id === items);
       if (!itemInfo) continue;
+      const discountedPrice = getDiscountedPrice(itemInfo.price);
       for (const item in cartItems[items]) {
         try {
           if (cartItems[items][item] > 0) {
-            totalAmount += itemInfo.price * cartItems[items][item];
+            totalAmount += discountedPrice * cartItems[items][item];
           }
         } catch (error) {
           console.error("Error in getCartAmount:", error);
@@ -334,9 +374,12 @@ const ShopContextProvider = (props) => {
     if (token) {
       getUserCart(token);
       getUserWishlist();
+      fetchDiscounts();
       mergeWishlist();
     } else {
       setWishlist([]);
+      setGlobalDiscounts([]);
+      setUserDiscounts([]);
     }
   }, [token]);
 
@@ -370,7 +413,10 @@ const ShopContextProvider = (props) => {
     isInWishlist,
     getUserWishlist,
     mergeWishlist,
-    getWishlistCount
+    getWishlistCount,
+    getDiscountedPrice,
+    globalDiscounts,
+    userDiscounts
   };
 
   return <ShopContext.Provider value={value}>{props.children}</ShopContext.Provider>;

@@ -4,26 +4,17 @@ import { Link } from 'react-router-dom';
 import { assets } from '../assets/assets';
 
 const ProductItem = ({ id, image, name, price }) => {
-  const { currency, products } = useContext(ShopContext);
+  const { currency, products, getDiscountedPrice } = useContext(ShopContext);
   const product = products.find(p => p._id === id);
   const isOutOfStock = product ? product.sizes.every(s => s.stock <= 0) : false;
 
   const productImage = Array.isArray(image) && image.length > 0 ? image[0] : assets.placeholder_image;
+  const discountedPrice = getDiscountedPrice(price);
+  const hasDiscount = discountedPrice < price;
+  const discountPercent = hasDiscount ? Math.round(((price - discountedPrice) / price) * 100) : 0;
 
-  const discountPercentage = 0.20;
-  const originalPrice = price / (1 - discountPercentage);
-
-  const hasValidPrices =
-    price !== undefined &&
-    originalPrice !== undefined &&
-    !isNaN(price) &&
-    !isNaN(originalPrice) &&
-    originalPrice > price;
-
-  const formattedOriginalPrice = hasValidPrices ? `${currency}${originalPrice.toFixed(2)}` : '';
-  const formattedPrice =
-    price !== undefined && !isNaN(price) ? `${currency}${price.toFixed(2)}` : 'Price unavailable';
-  const discountPercent = hasValidPrices ? Math.round(discountPercentage * 100) : 0;
+  const formattedOriginalPrice = hasDiscount ? `${currency}${price.toFixed(2)}` : '';
+  const formattedPrice = `${currency}${discountedPrice.toFixed(2)}`;
 
   return (
     <Link
@@ -56,7 +47,7 @@ const ProductItem = ({ id, image, name, price }) => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {hasValidPrices && (
+          {hasDiscount && (
             <span className="text-gray-500 line-through text-sm group-hover:text-gray-400 transition-colors duration-300">
               {formattedOriginalPrice}
             </span>
@@ -64,7 +55,7 @@ const ProductItem = ({ id, image, name, price }) => {
           <span className="text-red-600 font-bold text-base group-hover:text-red-700 transition-colors duration-300">
             {formattedPrice}
           </span>
-          {hasValidPrices && discountPercent > 0 && (
+          {hasDiscount && (
             <span className="text-green-600 text-xs font-medium">
               Save {discountPercent}%
             </span>
