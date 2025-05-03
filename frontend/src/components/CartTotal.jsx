@@ -1,4 +1,3 @@
-// frontend/src/components/CartTotal.jsx
 import React, { useContext } from 'react';
 import { ShopContext } from '../context/ShopContext';
 
@@ -37,6 +36,5 @@ const CartTotal = ({ discount = 0 }) => {
     </div>
   );
 };
-
 
 export default CartTotal;

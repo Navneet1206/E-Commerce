@@ -50,7 +50,7 @@ const LatestCollection = () => {
 };
 
 const ProductCard = ({ product, currency }) => {
-  const { navigate } = useContext(ShopContext);
+  const { navigate, getDiscountedPrice } = useContext(ShopContext);
 
   const {
     _id = "",
@@ -60,12 +60,9 @@ const ProductCard = ({ product, currency }) => {
     stock = 1
   } = product || {};
 
-  const discountPercentage = 0.20;
-  const originalPrice = price / (1 - discountPercentage);
-
-  const hasValidPrices = price !== undefined && originalPrice !== undefined &&
-                        !isNaN(price) && !isNaN(originalPrice) &&
-                        originalPrice > price;
+  const discountedPrice = getDiscountedPrice(price);
+  const hasDiscount = discountedPrice < price && !isNaN(discountedPrice) && !isNaN(price);
+  const discountPercent = hasDiscount ? Math.round(((price - discountedPrice) / price) * 100) : 0;
 
   const handleProductClick = () => {
     if (navigate) {
@@ -77,15 +74,10 @@ const ProductCard = ({ product, currency }) => {
 
   const primaryImage = images && images.length > 0 ? images[0] : assets.placeholder_image;
 
-  const formattedOriginalPrice = hasValidPrices ?
-    `${currency} ${originalPrice.toFixed(2)}` : "";
-  const formattedPrice = price !== undefined && !isNaN(price) ?
-    `${currency} ${price.toFixed(2)}` : "Price unavailable";
-
-  const discountPercent = hasValidPrices ? Math.round(discountPercentage * 100) : 0;
+  const formattedOriginalPrice = hasDiscount ? `${currency}${price.toFixed(2)}` : "";
+  const formattedPrice = !isNaN(discountedPrice) ? `${currency}${discountedPrice.toFixed(2)}` : "Price unavailable";
 
   return (
-    // *** Updated className to include card-clip for unique shape ***
     <div
       className="bg-white card-clip overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer group"
       onClick={handleProductClick}
@@ -116,7 +108,7 @@ const ProductCard = ({ product, currency }) => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {hasValidPrices && (
+          {hasDiscount && (
             <span className="text-gray-500 line-through text-sm group-hover:text-gray-400 transition-colors duration-300">
               {formattedOriginalPrice}
             </span>
@@ -124,7 +116,7 @@ const ProductCard = ({ product, currency }) => {
           <span className="text-red-600 font-bold text-base group-hover:text-red-700 transition-colors duration-300">
             {formattedPrice}
           </span>
-          {hasValidPrices && discountPercent > 0 && (
+          {hasDiscount && discountPercent > 0 && (
             <span className="text-green-600 text-xs font-medium">
               Save {discountPercent}%
             </span>

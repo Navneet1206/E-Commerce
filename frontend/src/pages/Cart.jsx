@@ -6,7 +6,7 @@ import CartTotal from '../components/CartTotal';
 import { toast } from 'react-toastify';
 
 const Cart = () => {
-  const { products, currency, cartItems, updateQuantity, navigate } = useContext(ShopContext);
+  const { products, currency, cartItems, updateQuantity, navigate, getDiscountedPrice } = useContext(ShopContext);
   const [cartData, setCartData] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -84,6 +84,8 @@ const Cart = () => {
                 return null;
               }
               const sizeStock = productData.sizes.find(s => s.size === item.size)?.stock || 0;
+              const discountedPrice = getDiscountedPrice(productData.price);
+              const hasDiscount = discountedPrice < productData.price;
 
               return (
                 <div
@@ -101,7 +103,10 @@ const Cart = () => {
                         {productData.name} {sizeStock === 0 && <span className="text-red-500 text-sm">(Out of Stock)</span>}
                       </p>
                       <div className="flex items-center gap-5 mt-2">
-                        <p>{currency}{productData.price}</p>
+                        {hasDiscount && (
+                          <p className="text-gray-500 line-through">{currency}{productData.price}</p>
+                        )}
+                        <p>{currency}{discountedPrice.toFixed(2)}</p>
                         <p className="px-2 sm:px-3 sm:py-1 border bg-slate-50">{item.size}</p>
                       </div>
                     </div>
