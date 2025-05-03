@@ -25,7 +25,6 @@ const Home = () => {
       <div ref={latestRef} className={`section ${latestInView ? 'visible' : ''}`}>
         <LatestCollection />
       </div>
-      <h1 className="text-center text-3xl py-8">Hello </h1>
       <div ref={recommendedRef} className={`section ${recommendedInView ? 'visible' : ''}`}>
         <RecommendedProducts />
       </div>
