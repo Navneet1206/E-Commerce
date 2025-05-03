@@ -3,6 +3,7 @@ import { loginUser, registerUser, adminLogin, sendOtp, sendResetCode, resetPassw
 import authUser from '../middleware/auth.js';
 import adminAuth from '../middleware/adminAuth.js';
 import { addAddress, updateAddress, deleteAddress, getAddresses, addToWishlist, removeFromWishlist, getWishlist, getAllWishlists, getWishlistedProducts, addMultipleToWishlist } from '../controllers/userController.js';
+import { getRecommendations } from '../controllers/recommendation.js';
 
 const userRouter = express.Router();
 
@@ -23,5 +24,12 @@ userRouter.get('/wishlist', authUser, getWishlist);
 userRouter.get('/admin/wishlists', authUser, getAllWishlists);
 userRouter.get('/wishlists/products', adminAuth, getWishlistedProducts);
 userRouter.post('/wishlist/add-multiple', authUser, addMultipleToWishlist);
-
+userRouter.get('/recommendations', authUser, async (req, res) => {
+    try {
+      const recommendations = await getRecommendations(req.body.userId);
+      res.json({ success: true, recommendations });
+    } catch (error) {
+      res.json({ success: false, message: error.message });
+    }
+  });
 export default userRouter;

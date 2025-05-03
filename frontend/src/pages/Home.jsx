@@ -1,11 +1,12 @@
 import React from 'react';
-import useInView from '../hooks/useInView'; // *** Corrected import path ***
+import useInView from '../hooks/useInView';
 import Hero from '../components/Hero';
 import LatestCollection from '../components/LatestCollection';
 import BestSeller from '../components/BestSeller';
 import OurPolicy from '../components/OurPolicy';
 import NewsletterBox from '../components/NewsletterBox';
 import Testimonial from '../components/Testimonial';
+import RecommendedProducts from '../components/RecommendedProducts';
 
 const Home = () => {
   const [heroRef, heroInView] = useInView({ threshold: 0.1 });
@@ -14,6 +15,7 @@ const Home = () => {
   const [testimonialRef, testimonialInView] = useInView({ threshold: 0.1 });
   const [policyRef, policyInView] = useInView({ threshold: 0.1 });
   const [newsletterRef, newsletterInView] = useInView({ threshold: 0.1 });
+  const [recommendedRef, recommendedInView] = useInView({ threshold: 0.1 });
 
   return (
     <div>
@@ -22,6 +24,10 @@ const Home = () => {
       </div>
       <div ref={latestRef} className={`section ${latestInView ? 'visible' : ''}`}>
         <LatestCollection />
+      </div>
+      <h1 className="text-center text-3xl py-8">Hello </h1>
+      <div ref={recommendedRef} className={`section ${recommendedInView ? 'visible' : ''}`}>
+        <RecommendedProducts />
       </div>
       <div ref={bestSellerRef} className={`section ${bestSellerInView ? 'visible' : ''}`}>
         <BestSeller />
