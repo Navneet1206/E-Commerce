@@ -102,8 +102,6 @@ const Discount = ({ token }) => {
   const deleteDiscount = async (id) => {
     try {
       const response = await axios.delete(`${backendUrl}api/discount/${id}`, { headers: { token } });
-      console.log('Fetching discounts from:', `${backendUrl}api/discount`);
-      console.log('Headers:', { Authorization: `Bearer ${token}` });
       if (response.data.success) {
         toast.success('Discount deleted');
         fetchDiscounts();

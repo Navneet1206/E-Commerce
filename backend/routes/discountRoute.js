@@ -9,7 +9,6 @@ const discountRouter = express.Router();
 // Admin: Create global discount
 discountRouter.post('/global', adminAuth, async (req, res) => {
   try {
-    console.log('Received global discount request:', req.body);
     const { minPrice, maxPrice, percentage } = req.body;
 
     // Validation
@@ -27,9 +26,7 @@ discountRouter.post('/global', adminAuth, async (req, res) => {
     }
 
     const discount = new Discount({ type: 'global', minPrice, maxPrice, percentage });
-    console.log('Saving global discount:', discount);
     await discount.save();
-    console.log('Global discount saved successfully');
     res.status(201).json({ success: true, message: 'Global discount created successfully' });
   } catch (error) {
     console.error('Error creating global discount:', error.stack);
@@ -40,7 +37,6 @@ discountRouter.post('/global', adminAuth, async (req, res) => {
 // Admin: Create user-specific discount
 discountRouter.post('/user', adminAuth, async (req, res) => {
   try {
-    console.log('Received user discount request:', req.body);
     const { email, minPrice, maxPrice, percentage } = req.body;
 
     // Validation
@@ -70,9 +66,7 @@ discountRouter.post('/user', adminAuth, async (req, res) => {
       maxPrice, 
       percentage 
     });
-    console.log('Saving user-specific discount:', discount);
     await discount.save();
-    console.log('User-specific discount saved successfully');
     res.status(201).json({ success: true, message: 'User-specific discount created successfully' });
   } catch (error) {
     console.error('Error creating user-specific discount:', error.stack);
@@ -83,9 +77,7 @@ discountRouter.post('/user', adminAuth, async (req, res) => {
 // Admin: List all discounts
 discountRouter.get('/', adminAuth, async (req, res) => {
   try {
-    console.log('Fetching all discounts');
     const discounts = await Discount.find({}).populate('userId', 'email');
-    console.log('Discounts fetched:', discounts.length);
     res.json({ success: true, discounts });
   } catch (error) {
     console.error('Error fetching discounts:', error.stack);
@@ -96,13 +88,11 @@ discountRouter.get('/', adminAuth, async (req, res) => {
 // Admin: Delete discount
 discountRouter.delete('/:id', adminAuth, async (req, res) => {
   try {
-    console.log('Deleting discount with ID:', req.params.id);
     const discount = await Discount.findByIdAndDelete(req.params.id);
     if (!discount) {
       console.warn('Discount not found for ID:', req.params.id);
       return res.status(404).json({ success: false, message: 'Discount not found' });
     }
-    console.log('Discount deleted successfully');
     res.json({ success: true, message: 'Discount deleted successfully' });
   } catch (error) {
     console.error('Error deleting discount:', error.stack);
@@ -113,10 +103,8 @@ discountRouter.delete('/:id', adminAuth, async (req, res) => {
 // User: Get applicable discounts
 discountRouter.get('/applicable', authUser, async (req, res) => {
   try {
-    console.log('Fetching applicable discounts for user:', req.body.userId);
     const globalDiscounts = await Discount.find({ type: 'global' });
     const userDiscounts = await Discount.find({ type: 'user', userId: req.body.userId });
-    console.log('Applicable discounts fetched:', { global: globalDiscounts.length, user: userDiscounts.length });
     res.json({ success: true, globalDiscounts, userDiscounts });
   } catch (error) {
     console.error('Error fetching applicable discounts:', error.stack);
