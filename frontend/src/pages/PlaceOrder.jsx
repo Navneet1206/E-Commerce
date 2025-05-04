@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 
 const PlaceOrder = () => {
   const navigate = useNavigate();
-  const { backendUrl, token, cartItems, setCartItems, getCartAmount, delivery_fee, products } = useContext(ShopContext);
+  const { backendUrl, token, cartItems, setCartItems, getCartAmount, products } = useContext(ShopContext);
   const [method, setMethod] = useState('cod');
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
   const [addresses, setAddresses] = useState([]);
@@ -20,7 +20,10 @@ const PlaceOrder = () => {
   const [couponCode, setCouponCode] = useState('');
   const [couponStatus, setCouponStatus] = useState(null);
   const [discount, setDiscount] = useState(0);
-  const [finalAmount, setFinalAmount] = useState(getCartAmount() + delivery_fee);
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [loadingFee, setLoadingFee] = useState(false);
+  const [feeError, setFeeError] = useState(null);
+  const [finalAmount, setFinalAmount] = useState(getCartAmount());
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -72,8 +75,41 @@ const PlaceOrder = () => {
   }, [token, backendUrl]);
 
   useEffect(() => {
-    setFinalAmount(getCartAmount() + delivery_fee - discount);
-  }, [cartItems, delivery_fee, discount]);
+    if (selectedAddress || (useNewAddress && formData.street && formData.city && formData.state && formData.zipcode && formData.country)) {
+      fetchDeliveryFee();
+    } else {
+      setDeliveryFee(0);
+      setFeeError(null);
+    }
+  }, [selectedAddress, formData]);
+
+  useEffect(() => {
+    setFinalAmount(getCartAmount() + deliveryFee - discount);
+  }, [cartItems, deliveryFee, discount]);
+
+  const fetchDeliveryFee = async () => {
+    setLoadingFee(true);
+    setFeeError(null);
+    try {
+      const address = useNewAddress ? formData : selectedAddress;
+      const response = await axios.post(
+        `${backendUrl}/api/order/calculate-delivery-charge`,
+        { address },
+        { headers: { token } }
+      );
+      if (response.data.success) {
+        setDeliveryFee(response.data.deliveryCharge);
+      } else {
+        setFeeError(response.data.message);
+        setDeliveryFee(0);
+      }
+    } catch (error) {
+      setFeeError(error.response?.data?.message || 'Failed to calculate delivery fee');
+      setDeliveryFee(0);
+    } finally {
+      setLoadingFee(false);
+    }
+  };
 
   const onChangeHandler = (event) => {
     const { name, value } = event.target;
@@ -134,18 +170,18 @@ const PlaceOrder = () => {
       if (response.data.success) {
         setCouponStatus({ valid: true, message: response.data.message });
         setDiscount(response.data.discount);
-        setFinalAmount(response.data.finalAmount + delivery_fee);
+        setFinalAmount(response.data.finalAmount + deliveryFee);
         toast.success(response.data.message);
       } else {
         setCouponStatus({ valid: false, message: response.data.message });
         setDiscount(0);
-        setFinalAmount(getCartAmount() + delivery_fee);
+        setFinalAmount(getCartAmount() + deliveryFee);
         toast.error(response.data.message);
       }
     } catch (error) {
       setCouponStatus({ valid: false, message: error.response?.data?.message || 'Error validating coupon' });
       setDiscount(0);
-      setFinalAmount(getCartAmount() + delivery_fee);
+      setFinalAmount(getCartAmount() + deliveryFee);
       toast.error(error.response?.data?.message || 'Error validating coupon');
     }
   };
@@ -186,6 +222,7 @@ const PlaceOrder = () => {
         amount: finalAmount,
         userId: JSON.parse(atob(token.split('.')[1])).id,
         couponCode: couponStatus?.valid ? couponCode.trim() : null,
+        deliveryCharge: deliveryFee
       };
 
       if (method === 'cod') {
@@ -316,12 +353,21 @@ const PlaceOrder = () => {
               <input type="checkbox" checked={saveAddress} onChange={(e) => setSaveAddress(e.target.checked)} />
               <label className="text-gray-700">Save this address for future use</label>
             </div>
+            {addresses.length > 0 && (
+              <button type="button" onClick={() => setUseNewAddress(false)} className="mt-2 text-blue-500">Use Saved Address</button>
+            )}
           </div>
         )}
       </div>
       <div className='mt-8'>
         <div className='mt-8 min-w-80'>
-          <CartTotal discount={discount} finalAmount={finalAmount} />
+          {loadingFee ? (
+            <p className="text-gray-500">Calculating delivery fee...</p>
+          ) : feeError ? (
+            <p className="text-red-500">{feeError}</p>
+          ) : (
+            <CartTotal discount={discount} finalAmount={finalAmount} deliveryFee={deliveryFee} />
+          )}
           <div className='mt-4'>
             {!showCouponInput ? (
               <button

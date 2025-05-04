@@ -1,4 +1,3 @@
-// backend/controllers/orderController.js
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
 import productModel from "../models/productModel.js";
@@ -9,6 +8,7 @@ import CouponUsage from "../models/couponUsageModel.js";
 import Discount from "../models/Discount.js";
 import { sendOrderUpdateEmail, sendOrderBookingEmail, sendOrderNotificationToAdmin } from "../config/sendmessage.js";
 import PDFDocument from 'pdfkit';
+import fetch from 'node-fetch';
 
 dotenv.config();
 
@@ -16,6 +16,57 @@ const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
+
+// Geocode an address using Here Map API
+const geocodeAddress = async (address) => {
+  const query = `${address.street}, ${address.city}, ${address.state}, ${address.zipcode}, ${address.country}`;
+  const url = `https://geocode.search.hereapi.com/v1/geocode?apiKey=${process.env.HERE_API_KEY}&q=${encodeURIComponent(query)}`;
+  const response = await fetch(url);
+  const data = await response.json();
+  if (data.items && data.items.length > 0) {
+    const position = data.items[0].position;
+    return { lat: position.lat, lng: position.lng };
+  } else {
+    throw new Error('Unable to geocode address');
+  }
+};
+
+// Calculate distance between two coordinates using Here Map API
+const calculateDistance = async (coord1, coord2) => {
+  const url = `https://route.ls.hereapi.com/routing/7.2/calculateroute.json?apiKey=${process.env.HERE_API_KEY}&waypoint0=${coord1.lat},${coord1.lng}&waypoint1=${coord2.lat},${coord2.lng}&mode=fastest;car;traffic:disabled`;
+  const response = await fetch(url);
+  const data = await response.json();
+  if (data.response && data.response.route) {
+    return data.response.route[0].summary.distance / 1000; // Distance in km
+  } else {
+    throw new Error('Unable to calculate distance');
+  }
+};
+
+// New endpoint to calculate delivery charge
+const calculateDeliveryCharge = async (req, res) => {
+  try {
+    const { address } = req.body;
+    const admin = await userModel.findOne({ role: 'admin' });
+    if (!admin || !admin.address) {
+      return res.status(500).json({ success: false, message: "Admin address not found" });
+    }
+    const adminAddress = admin.address;
+    const adminCoord = await geocodeAddress(adminAddress);
+    const userCoord = await geocodeAddress(address);
+    const distance = await calculateDistance(adminCoord, userCoord);
+    let deliveryCharge = 0;
+    if (distance > 150) {
+      deliveryCharge = 0.3 * distance;
+    } else if (distance > 80) {
+      deliveryCharge = 0.5 * distance;
+    }
+    res.json({ success: true, deliveryCharge });
+  } catch (error) {
+    console.error("Calculate Delivery Charge Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 const checkStockAvailability = async (items) => {
   for (const item of items) {
@@ -89,7 +140,6 @@ const validateCoupon = async (couponCode, userId, cartItems) => {
   return { valid: true, discountPercent: coupons[couponCode], discount, message: `Coupon applied! ${coupons[couponCode]}% off eligible items.` };
 };
 
-// New endpoint to validate coupon
 const validateCouponEndpoint = async (req, res) => {
   try {
     const { couponCode, userId, items } = req.body;
@@ -159,6 +209,22 @@ const placeOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: stockCheck.message });
     }
 
+    // Calculate distance and delivery charge
+    const admin = await userModel.findOne({ role: 'admin' });
+    if (!admin || !admin.address) {
+      return res.status(500).json({ success: false, message: "Admin address not found" });
+    }
+    const adminAddress = admin.address;
+    const adminCoord = await geocodeAddress(adminAddress);
+    const userCoord = await geocodeAddress(address);
+    const distance = await calculateDistance(adminCoord, userCoord);
+    let deliveryCharge = 0;
+    if (distance > 150) {
+      deliveryCharge = 0.3 * distance;
+    } else if (distance > 80) {
+      deliveryCharge = 0.5 * distance;
+    }
+
     let totalAmount = await calculateOrderTotal(items, userId);
     let discount = 0;
     if (couponCode) {
@@ -171,7 +237,7 @@ const placeOrder = async (req, res) => {
       }
     }
 
-    const finalAmount = totalAmount - discount;
+    const finalAmount = totalAmount - discount + deliveryCharge;
 
     const deliveryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const orderData = {
@@ -185,7 +251,8 @@ const placeOrder = async (req, res) => {
       deliveryDate,
       status: 'Order Placed',
       couponCode: couponCode || null,
-      discount
+      discount,
+      deliveryCharge
     };
 
     const newOrder = new orderModel(orderData);
@@ -199,9 +266,9 @@ const placeOrder = async (req, res) => {
       await sendOrderBookingEmail(user.email, newOrder._id, finalAmount);
     }
 
-    const admin = await userModel.findOne({ role: 'admin' });
-    if (admin && admin.email) {
-      await sendOrderNotificationToAdmin(admin.email, newOrder._id, user.email || "Unknown User");
+    const adminUser = await userModel.findOne({ role: 'admin' });
+    if (adminUser && adminUser.email) {
+      await sendOrderNotificationToAdmin(adminUser.email, newOrder._id, user.email || "Unknown User");
     }
 
     res.json({ success: true, message: "Order Placed" });
@@ -224,6 +291,22 @@ const placeOrderRazorpay = async (req, res) => {
       return res.status(400).json({ success: false, message: stockCheck.message });
     }
 
+    // Calculate distance and delivery charge
+    const admin = await userModel.findOne({ role: 'admin' });
+    if (!admin || !admin.address) {
+      return res.status(500).json({ success: false, message: "Admin address not found" });
+    }
+    const adminAddress = admin.address;
+    const adminCoord = await geocodeAddress(adminAddress);
+    const userCoord = await geocodeAddress(address);
+    const distance = await calculateDistance(adminCoord, userCoord);
+    let deliveryCharge = 0;
+    if (distance > 150) {
+      deliveryCharge = 0.3 * distance;
+    } else if (distance > 80) {
+      deliveryCharge = 0.5 * distance;
+    }
+
     let totalAmount = await calculateOrderTotal(items, userId);
     let discount = 0;
     if (couponCode) {
@@ -235,7 +318,7 @@ const placeOrderRazorpay = async (req, res) => {
       }
     }
 
-    const finalAmount = totalAmount - discount;
+    const finalAmount = totalAmount - discount + deliveryCharge;
 
     if (typeof finalAmount !== "number" || finalAmount <= 0) {
       return res.status(400).json({ success: false, message: "Amount must be a positive number" });
@@ -263,7 +346,8 @@ const placeOrderRazorpay = async (req, res) => {
       razorpayOrderId: order.id,
       deliveryDate,
       couponCode: couponCode || null,
-      discount
+      discount,
+      deliveryCharge
     };
 
     const newOrder = new orderModel(orderData);
@@ -419,7 +503,8 @@ const generateInvoice = async (req, res) => {
     });
 
     doc.moveDown();
-    doc.fontSize(14).text(`Total Amount: ${order.amount}`);
+    doc.fontSize(14).text(`Delivery Charge: ${order.deliveryCharge || 0}`);
+    doc.text(`Total Amount: ${order.amount}`);
 
     doc.moveDown();
     doc.text('Thank you for your purchase!', { align: 'center' });
@@ -466,5 +551,6 @@ export {
   getOrderById,
   generateInvoice,
   confirmPayment,
-  validateCouponEndpoint
+  validateCouponEndpoint,
+  calculateDeliveryCharge
 };
