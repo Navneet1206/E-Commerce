@@ -390,39 +390,134 @@ const generateInvoice = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
 
-    const doc = new PDFDocument();
+    // Create PDF document
+    const doc = new PDFDocument({
+      margins: { top: 50, bottom: 50, left: 50, right: 50 },
+      size: 'A4'
+    });
+
+    // Set response headers
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=invoice-${orderId}.pdf`);
     doc.pipe(res);
 
-    doc.fontSize(20).text('Invoice', { align: 'center' });
-    doc.moveDown();
+    // Define colors and styles
+    const primaryColor = '#4F6D7A';
+    const secondaryColor = '#86B3D1';
+    const textColor = '#333333';
+    const lightGray = '#EEEEEE';
 
-    doc.fontSize(14).text(`Order ID: ${order._id}`);
-    doc.text(`Date: ${new Date(order.date).toLocaleDateString()}`);
-    doc.moveDown();
+    // Company Logo and Info (Header)
+    doc.fontSize(10).fillColor(textColor).text('Your Company Name', 50, 50, { align: 'left' });
+    doc.fontSize(8).text('123 Business Street, City, Country', 50, 65, { align: 'left' });
+    doc.text('Email: contact@yourcompany.com', 50, 80, { align: 'left' });
+    doc.text('Phone: +1 234 567 890', 50, 95, { align: 'left' });
 
-    doc.text(`Customer: ${order.address.firstName} ${order.address.lastName}`);
-    doc.text(`Email: ${order.address.email}`);
-    doc.text(`Address: ${order.address.street}, ${order.address.city}, ${order.address.state}, ${order.address.zipcode}, ${order.address.country}`);
-    doc.moveDown();
+    // Invoice Title and Number
+    doc.fontSize(24).fillColor(primaryColor).text('INVOICE', 400, 50, { align: 'right' });
+    doc.fontSize(10).fillColor(textColor).text(`Invoice #: INV-${orderId.substring(0, 8).toUpperCase()}`, 400, 80, { align: 'right' });
+    doc.text(`Date: ${new Date(order.date).toLocaleDateString()}`, 400, 95, { align: 'right' });
+    doc.text(`Due Date: ${new Date(new Date(order.date).getTime() + 30*24*60*60*1000).toLocaleDateString()}`, 400, 110, { align: 'right' });
 
-    doc.fontSize(14).text('Items:', { underline: true });
-    doc.moveDown(0.5);
+    // Horizontal line
+    doc.strokeColor(lightGray).lineWidth(1).moveTo(50, 130).lineTo(550, 130).stroke();
+
+    // Billing Information
+    doc.fontSize(12).fillColor(primaryColor).text('Bill To:', 50, 150);
+    doc.fontSize(10).fillColor(textColor).text(`${order.address.firstName} ${order.address.lastName}`, 50, 170);
+    doc.text(order.address.email, 50, 185);
+    doc.text(`${order.address.street}`, 50, 200);
+    doc.text(`${order.address.city}, ${order.address.state} ${order.address.zipcode}`, 50, 215);
+    doc.text(order.address.country, 50, 230);
+
+    // Payment Details
+    doc.fontSize(12).fillColor(primaryColor).text('Payment Details:', 300, 150);
+    doc.fontSize(10).fillColor(textColor).text(`Payment Method: ${order.paymentMethod || 'Credit Card'}`, 300, 170);
+    doc.text(`Order ID: ${order._id}`, 300, 185);
+    doc.text(`Order Date: ${new Date(order.date).toLocaleDateString()}`, 300, 200);
+    
+    // Items Table Header
+    const tableTop = 270;
+    doc.fontSize(10).fillColor(primaryColor);
+    doc.rect(50, tableTop, 500, 20).fill();
+    doc.fillColor('#FFFFFF');
+    doc.text('Item', 60, tableTop + 5, { width: 190 });
+    doc.text('Size', 250, tableTop + 5, { width: 50 });
+    doc.text('Qty', 300, tableTop + 5, { width: 50, align: 'center' });
+    doc.text('Unit Price', 350, tableTop + 5, { width: 100, align: 'right' });
+    doc.text('Amount', 450, tableTop + 5, { width: 90, align: 'right' });
+
+    // Items
+    let y = tableTop + 30;
+    let subtotal = 0;
     order.items.forEach((item, index) => {
-      doc.fontSize(12).text(`Item ${index + 1}:`);
-      doc.text(`  Product Name: ${item.name || 'Unknown Product'}`);
-      doc.text(`  Size: ${item.size}`);
-      doc.text(`  Quantity: ${item.quantity}`);
-      doc.text(`  Price: ${item.price}`);
-      doc.moveDown(0.5);
+      const lineHeight = 20;
+      const isEvenRow = index % 2 === 0;
+      
+      // Alternate row background
+      if (isEvenRow) {
+        doc.rect(50, y - 5, 500, lineHeight).fill(lightGray);
+      }
+      
+      doc.fillColor(textColor);
+      doc.fontSize(9);
+      doc.text(item.name || 'Unknown Product', 60, y, { width: 190 });
+      doc.text(item.size || 'N/A', 250, y, { width: 50 });
+      doc.text(item.quantity.toString(), 300, y, { width: 50, align: 'center' });
+      
+      const unitPrice = parseFloat(item.price) / item.quantity;
+      const itemTotal = parseFloat(item.price);
+      subtotal += itemTotal;
+      
+      doc.text(`$${unitPrice.toFixed(2)}`, 350, y, { width: 100, align: 'right' });
+      doc.text(`$${itemTotal.toFixed(2)}`, 450, y, { width: 90, align: 'right' });
+      
+      y += lineHeight;
     });
 
-    doc.moveDown();
-    doc.fontSize(14).text(`Total Amount: ${order.amount}`);
+    // Calculate totals
+    const tax = subtotal * 0.1; // 10% tax (example)
+    const shipping = order.shipping || 0;
+    const total = subtotal + tax + shipping;
 
-    doc.moveDown();
-    doc.text('Thank you for your purchase!', { align: 'center' });
+    // Draw bottom line
+    y += 10;
+    doc.strokeColor(lightGray).lineWidth(1).moveTo(50, y).lineTo(550, y).stroke();
+    y += 20;
+
+    // Totals
+    doc.fontSize(10);
+    doc.text('Subtotal:', 400, y, { width: 70, align: 'right' });
+    doc.text(`$${subtotal.toFixed(2)}`, 470, y, { width: 80, align: 'right' });
+    y += 15;
+    
+    doc.text('Tax (10%):', 400, y, { width: 70, align: 'right' });
+    doc.text(`$${tax.toFixed(2)}`, 470, y, { width: 80, align: 'right' });
+    y += 15;
+    
+    doc.text('Shipping:', 400, y, { width: 70, align: 'right' });
+    doc.text(`$${shipping.toFixed(2)}`, 470, y, { width: 80, align: 'right' });
+    y += 20;
+    
+    // Total
+    doc.fontSize(12).fillColor(primaryColor);
+    doc.rect(400, y-5, 150, 25).fillAndStroke(primaryColor, primaryColor);
+    doc.fillColor('#FFFFFF');
+    doc.text('TOTAL:', 400, y, { width: 70, align: 'right' });
+    doc.text(`$${total.toFixed(2)}`, 470, y, { width: 80, align: 'right' });
+
+    // Notes
+    y += 50;
+    doc.fontSize(10).fillColor(primaryColor).text('Notes:', 50, y);
+    doc.fontSize(9).fillColor(textColor).text('Payment is due within 30 days. Please include the invoice number with your payment.', 50, y + 15, { width: 400 });
+
+    // Footer
+    const footerTop = doc.page.height - 50;
+    doc.fontSize(8).fillColor(textColor).text('Thank you for your business!', 50, footerTop, { align: 'center', width: 500 });
+    doc.text(`Invoice generated on ${new Date().toLocaleString()}`, 50, footerTop + 15, { align: 'center', width: 500 });
+
+    // Add page number to the current page only
+    doc.text(`Page 1`, 50, footerTop + 30, { align: 'center', width: 500 });
 
     doc.end();
   } catch (error) {
