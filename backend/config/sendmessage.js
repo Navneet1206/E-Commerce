@@ -51,8 +51,7 @@ const send2StepVerificationEmail = async (to, code) => {
       to,
       subject,
       html,
-    });
-    console.log(`2-Step Verification email sent to ${to}`);
+    })
   } catch (error) {
     console.error('Error sending 2-Step Verification email:', error);
     throw new Error('Failed to send verification email');
@@ -80,7 +79,6 @@ const sendOrderUpdateEmail = async (to, orderId, status) => {
       subject,
       html,
     });
-    console.log(`Order update email sent to ${to} for order ${orderId}`);
   } catch (error) {
     console.error('Error sending order update email:', error);
     throw new Error(`Failed to send order update email: ${error.message}`);
@@ -110,7 +108,6 @@ const sendOrderBookingEmail = async (to, orderId, amount) => {
       subject,
       html,
     });
-    console.log(`Order booking email sent to ${to} for order ${orderId}`);
   } catch (error) {
     console.error('Error sending order booking email:', error);
     throw new Error(`Failed to send order booking email: ${error.message}`);
@@ -137,7 +134,6 @@ const sendOrderNotificationToAdmin = async (to, orderId, userEmail) => {
       subject,
       html,
     });
-    console.log(`Admin notification email sent to ${to} for order ${orderId}`);
   } catch (error) {
     console.error('Error sending admin notification email:', error);
     throw new Error(`Failed to send admin notification email: ${error.message}`);

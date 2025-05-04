@@ -36,7 +36,6 @@ app.listen(port, async () => {
     console.log('Server started on port: ' + port);
     try {
         await computeRecommendationData();
-        console.log('Recommendation data computed successfully');
     } catch (error) {
         console.error('Error computing recommendation data:', error);
     }

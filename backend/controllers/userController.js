@@ -76,7 +76,6 @@ const registerUser = async (req, res) => {
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log("User login attempt:", { email });
     const user = await userModel.findOne({ email });
     if (!user) {
       return res.json({ success: false, message: "User doesn't exist" });
@@ -96,7 +95,6 @@ const loginUser = async (req, res) => {
 const adminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log("Admin login attempt:", { email });
     const user = await userModel.findOne({ email });
     if (!user) {
       return res.json({ success: false, message: "User doesn't exist" });

@@ -60,7 +60,6 @@ const computeRecommendationData = async () => {
       categoryTopSellers[cat].sort((a, b) => b.count - a.count);
     }
 
-    console.log('Recommendation data computed successfully');
   } catch (error) {
     console.error('Error computing recommendation data:', error);
   }
