@@ -13,6 +13,7 @@ const TrackOrder = () => {
   const [returnRequest, setReturnRequest] = useState(null);
   const [showReturnForm, setShowReturnForm] = useState(false);
   const [returnReason, setReturnReason] = useState('');
+  const [returnDescription, setReturnDescription] = useState('');
   const [returnImages, setReturnImages] = useState([null, null]);
   const navigate = useNavigate();
 
@@ -40,7 +41,13 @@ const TrackOrder = () => {
     try {
       const response = await axios.get(`${backendUrl}/api/return-refund/order/${idoforder}`, { headers: { token } });
       if (response.data.success) {
-        setReturnRequest(response.data.request);
+        // Ensure description is included in the response
+        setReturnRequest({
+          status: response.data.request.status,
+          reason: response.data.request.reason,
+          description: response.data.request.description || 'No description provided',
+          images: response.data.request.images || []
+        });
       } else {
         setReturnRequest(null);
       }
@@ -64,11 +71,16 @@ const TrackOrder = () => {
       toast.error("Please select a reason for return");
       return;
     }
+    if (!returnDescription) {
+      toast.error("Please provide a description for the return");
+      return;
+    }
 
     try {
       const formData = new FormData();
       formData.append('orderId', order._id);
       formData.append('reason', returnReason);
+      formData.append('description', returnDescription);
       formData.append('userId', order.userId);
       returnImages.forEach((image, index) => {
         if (image) formData.append(`image${index + 1}`, image);
@@ -82,6 +94,7 @@ const TrackOrder = () => {
         toast.success("Return/Refund request submitted");
         setShowReturnForm(false);
         setReturnReason('');
+        setReturnDescription('');
         setReturnImages([null, null]);
         await fetchReturnRequest();
       } else {
@@ -258,19 +271,33 @@ const TrackOrder = () => {
               <div className="bg-white rounded-lg shadow-md p-6 mb-8">
                 <h2 className="text-xl font-semibold mb-4">Return / Refund Request</h2>
                 {returnRequest ? (
-                  <div className="bg-gray-100 p-4 rounded-md">
-                    <p className="text-gray-700"><strong>Status:</strong> {returnRequest.status}</p>
-                    <p className="text-gray-700"><strong>Reason:</strong> {returnRequest.reason}</p>
-                    {returnRequest.images.length > 0 && (
-                      <div className="mt-2">
-                        <p className="text-gray-700"><strong>Images:</strong></p>
-                        <div className="flex gap-2">
-                          {returnRequest.images.map((img, idx) => (
-                            <img key={idx} src={img} alt={`Return Image ${idx + 1}`} className="w-20 h-20 object-cover rounded-md" />
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                  <div className="bg-white p-4 rounded-md border border-gray-200 overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="bg-gray-100 text-gray-600 uppercase text-xs">
+                          <th className="px-4 py-2 text-left font-medium">Status</th>
+                          <th className="px-4 py-2 text-left font-medium">Reason</th>
+                          <th className="px-4 py-2 text-left font-medium">Description</th>
+                          <th className="px-4 py-2 text-left font-medium">Images</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b">
+                          <td className="px-4 py-2 whitespace-nowrap text-gray-700">{returnRequest.status}</td>
+                          <td className="px-4 py-2 whitespace-nowrap text-gray-700">{returnRequest.reason}</td>
+                          <td className="px-4 py-2 text-gray-700 max-w-xs break-words">{returnRequest.description}</td>
+                          <td className="px-4 py-2 whitespace-nowrap">
+                            {returnRequest.images.length > 0 ? (
+                              <div className="flex gap-2 flex-wrap">
+                                {returnRequest.images.map((img, idx) => (
+                                  <img key={idx} src={img} alt={`Return Image ${idx + 1}`} className="w-16 h-16 object-cover rounded-md" />
+                                ))}
+                              </div>
+                            ) : 'None'}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 ) : isWithinReturnPeriod() ? (
                   <div>
@@ -283,7 +310,7 @@ const TrackOrder = () => {
                         Request Return/Refund
                       </button>
                     ) : (
-                      <form onSubmit={handleReturnSubmit} className="space-y-4">
+                      <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Reason for Return</label>
                           <select
@@ -300,8 +327,18 @@ const TrackOrder = () => {
                           </select>
                         </div>
                         <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                          <textarea
+                            value={returnDescription}
+                            onChange={(e) => setReturnDescription(e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                            placeholder="Enter detailed description for return/refund"
+                            required
+                          />
+                        </div>
+                        <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Upload Photos (Optional, Max 2)</label>
-                          <div className="flex gap-4">
+                          <div className="flex gap-4 flex-wrap">
                             {[0, 1].map((index) => (
                               <div key={index} className="flex flex-col items-center">
                                 <input
@@ -314,29 +351,28 @@ const TrackOrder = () => {
                                   <img
                                     src={URL.createObjectURL(returnImages[index])}
                                     alt={`Return Image ${index + 1}`}
-                                    className="w-20 h-20 object-cover rounded-md"
+                                    className="w-16 h-16 object-cover rounded-md"
                                   />
                                 )}
                               </div>
                             ))}
                           </div>
                         </div>
-                        <div className="flex gap-4">
+                        <div className="flex gap-4 flex-wrap">
                           <button
-                            type="submit"
+                            onClick={handleReturnSubmit}
                             className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-6 rounded-md transition duration-300"
                           >
                             Submit Request
                           </button>
                           <button
-                            type="button"
                             onClick={() => setShowReturnForm(false)}
                             className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-6 rounded-md transition duration-300"
                           >
                             Cancel
                           </button>
                         </div>
-                      </form>
+                      </div>
                     )}
                   </div>
                 ) : (
