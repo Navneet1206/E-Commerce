@@ -7,7 +7,7 @@ export const ShopContext = createContext(null);
 
 const ShopContextProvider = (props) => {
   const currency = "₹";
-  const delivery_fee = 10;
+  const delivery_fee = 0;
   const rawBackendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
   const backendUrl = rawBackendUrl.endsWith("/") ? rawBackendUrl.slice(0, -1) : rawBackendUrl;
   console.log("Backend URL:", backendUrl);
