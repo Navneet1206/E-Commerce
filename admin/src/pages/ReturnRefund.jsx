@@ -125,7 +125,13 @@ const ReturnRefund = ({ token }) => {
             <h3 className="text-lg font-semibold mb-4">Uploaded Images</h3>
             <div className="flex gap-4">
               {selectedImages.map((img, index) => (
-                <img key={index} src={img} alt={`Return Image ${index + 1}`} className="w-40 h-40 object-cover rounded-md" />
+                <a href={img} target="_blank" rel="noopener noreferrer" key={index}>
+                  <img
+                    src={img}
+                    alt={`Return Image ${index + 1}`}
+                    className="max-w-full max-h-[80vh] object-contain cursor-pointer rounded-md"
+                  />
+                </a>
               ))}
             </div>
             <button

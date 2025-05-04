@@ -1,6 +1,7 @@
 import express from 'express';
 import ReturnRefund from '../models/returnRefundModel.js';
 import adminAuth from '../middleware/adminAuth.js';
+import authUser from '../middleware/auth.js';
 import userModel from '../models/userModel.js';
 
 const returnRefundRouter = express.Router();
@@ -10,6 +11,20 @@ returnRefundRouter.get('/all', adminAuth, async (req, res) => {
   try {
     const requests = await ReturnRefund.find({}).populate('userId', 'email');
     res.json({ success: true, requests });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// User: Get return/refund request for a specific order
+returnRefundRouter.get('/order/:orderId', authUser, async (req, res) => {
+  try {
+    const request = await ReturnRefund.findOne({ orderId: req.params.orderId, userId: req.body.userId });
+    if (request) {
+      res.json({ success: true, request });
+    } else {
+      res.json({ success: false, message: 'No request found' });
+    }
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

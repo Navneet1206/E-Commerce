@@ -7,9 +7,10 @@ import { Package, Truck, Home, CreditCard, Clock, CheckCircle, X, Printer, Uploa
 
 const TrackOrder = () => {
   const { idoforder } = useParams();
-  const { backendUrl, token, currency } = useContext(ShopContext);
+  const { backendUrl, token, currency, getDiscountedPrice } = useContext(ShopContext);
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [returnRequest, setReturnRequest] = useState(null);
   const [showReturnForm, setShowReturnForm] = useState(false);
   const [returnReason, setReturnReason] = useState('');
   const [returnImages, setReturnImages] = useState([null, null]);
@@ -35,6 +36,19 @@ const TrackOrder = () => {
     }
   };
 
+  const fetchReturnRequest = async () => {
+    try {
+      const response = await axios.get(`${backendUrl}/api/return-refund/order/${idoforder}`, { headers: { token } });
+      if (response.data.success) {
+        setReturnRequest(response.data.request);
+      } else {
+        setReturnRequest(null);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Error fetching return request");
+    }
+  };
+
   const isWithinReturnPeriod = () => {
     if (!order?.deliveryDate) return false;
     const deliveryDate = new Date(order.deliveryDate);
@@ -52,12 +66,10 @@ const TrackOrder = () => {
     }
 
     try {
-      console.log("Submitting return with token:", token);
-      console.log("Order:", order);
       const formData = new FormData();
       formData.append('orderId', order._id);
       formData.append('reason', returnReason);
-      formData.append('userId', order.userId); // Ensure userId is included
+      formData.append('userId', order.userId);
       returnImages.forEach((image, index) => {
         if (image) formData.append(`image${index + 1}`, image);
       });
@@ -69,12 +81,13 @@ const TrackOrder = () => {
       if (response.data.success) {
         toast.success("Return/Refund request submitted");
         setShowReturnForm(false);
-        fetchOrder();
+        setReturnReason('');
+        setReturnImages([null, null]);
+        await fetchReturnRequest();
       } else {
         toast.error(response.data.message);
       }
     } catch (error) {
-      console.error("Return Submit Error:", error.response?.data);
       toast.error(error.response?.data?.message || "Error submitting return request");
     }
   };
@@ -106,6 +119,7 @@ const TrackOrder = () => {
 
   useEffect(() => {
     fetchOrder();
+    fetchReturnRequest();
   }, [idoforder, token]);
 
   if (loading) return (
@@ -215,99 +229,122 @@ const TrackOrder = () => {
                 Order Items
               </h2>
               <div className="space-y-4">
-                {order.items.map((item, index) => (
-                  <div key={index} className="flex items-center border-b pb-4 last:border-b-0 last:pb-0">
-                    <div className="w-20 h-20 rounded-md overflow-hidden flex-shrink-0 bg-gray-100">
-                      <img src={item.images[0]} alt={item.name} className="w-full h-full object-cover" />
-                    </div>
-                    <div className="ml-4 flex-grow">
-                      <p className="font-medium text-gray-800">{item.name}</p>
-                      <div className="flex flex-wrap mt-1 text-sm text-gray-600">
-                        <span className="mr-4">Qty: {item.quantity}</span>
-                        <span className="mr-4">Size: {item.size}</span>
+                {order.items.map((item, index) => {
+                  const discountedPrice = getDiscountedPrice ? getDiscountedPrice(item.price / item.quantity) * item.quantity : item.price;
+                  const hasDiscount = discountedPrice < item.price;
+                  return (
+                    <div key={index} className="flex items-center border-b pb-4 last:border-b-0 last:pb-0">
+                      <div className="w-20 h-20 rounded-md overflow-hidden flex-shrink-0 bg-gray-100">
+                        <img src={item.images[0]} alt={item.name} className="w-full h-full object-cover" />
+                      </div>
+                      <div className="ml-4 flex-grow">
+                        <p className="font-medium text-gray-800">{item.name}</p>
+                        <div className="flex flex-wrap mt-1 text-sm text-gray-600">
+                          <span className="mr-4">Qty: {item.quantity}</span>
+                          <span className="mr-4">Size: {item.size}</span>
+                        </div>
+                        <p className="text-gray-600">
+                          {hasDiscount && <span className="line-through text-gray-500">{currency}{item.price}</span>}{' '}
+                          {currency}{discountedPrice.toFixed(2)}
+                        </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium text-blue-600">{currency}{item.price}</p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
-            {isWithinReturnPeriod() && (
+            {order.status === 'Delivered' && (
               <div className="bg-white rounded-lg shadow-md p-6 mb-8">
                 <h2 className="text-xl font-semibold mb-4">Return / Refund Request</h2>
-                <p className="text-gray-600 mb-4">You can request a return or refund within 3 days of delivery.</p>
-                {!showReturnForm ? (
-                  <button
-                    onClick={() => setShowReturnForm(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md transition duration-300"
-                  >
-                    Request Return/Refund
-                  </button>
-                ) : (
-                  <form onSubmit={handleReturnSubmit} className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Reason for Return</label>
-                      <select
-                        value={returnReason}
-                        onChange={(e) => setReturnReason(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                        required
-                      >
-                        <option value="">Select Reason</option>
-                        <option value="wrong_item">Wrong item received</option>
-                        <option value="damaged">Damaged or defective product</option>
-                        <option value="size_fit">Size or fit issue</option>
-                        <option value="other">Other</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Upload Photos (Optional, Max 2)</label>
-                      <div className="flex gap-4">
-                        {[0, 1].map((index) => (
-                          <div key={index} className="flex flex-col items-center">
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleImageChange(index, e.target.files[0])}
-                              className="mb-2"
-                            />
-                            {returnImages[index] && (
-                              <img
-                                src={URL.createObjectURL(returnImages[index])}
-                                alt={`Return Image ${index + 1}`}
-                                className="w-20 h-20 object-cover rounded-md"
-                              />
-                            )}
-                          </div>
-                        ))}
+                {returnRequest ? (
+                  <div className="bg-gray-100 p-4 rounded-md">
+                    <p className="text-gray-700"><strong>Status:</strong> {returnRequest.status}</p>
+                    <p className="text-gray-700"><strong>Reason:</strong> {returnRequest.reason}</p>
+                    {returnRequest.images.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-gray-700"><strong>Images:</strong></p>
+                        <div className="flex gap-2">
+                          {returnRequest.images.map((img, idx) => (
+                            <img key={idx} src={img} alt={`Return Image ${idx + 1}`} className="w-20 h-20 object-cover rounded-md" />
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex gap-4">
+                    )}
+                  </div>
+                ) : isWithinReturnPeriod() ? (
+                  <div>
+                    <p className="text-gray-600 mb-4">You can request a return or refund within 3 days of delivery.</p>
+                    {!showReturnForm ? (
                       <button
-                        type="submit"
-                        className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-6 rounded-md transition duration-300"
+                        onClick={() => setShowReturnForm(true)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md transition duration-300"
                       >
-                        Submit Request
+                        Request Return/Refund
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowReturnForm(false)}
-                        className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-6 rounded-md transition duration-300"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
+                    ) : (
+                      <form onSubmit={handleReturnSubmit} className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Reason for Return</label>
+                          <select
+                            value={returnReason}
+                            onChange={(e) => setReturnReason(e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                            required
+                          >
+                            <option value="">Select Reason</option>
+                            <option value="wrong_item">Wrong item received</option>
+                            <option value="damaged">Damaged or defective product</option>
+                            <option value="size_fit">Size or fit issue</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Upload Photos (Optional, Max 2)</label>
+                          <div className="flex gap-4">
+                            {[0, 1].map((index) => (
+                              <div key={index} className="flex flex-col items-center">
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => handleImageChange(index, e.target.files[0])}
+                                  className="mb-2"
+                                />
+                                {returnImages[index] && (
+                                  <img
+                                    src={URL.createObjectURL(returnImages[index])}
+                                    alt={`Return Image ${index + 1}`}
+                                    className="w-20 h-20 object-cover rounded-md"
+                                  />
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex gap-4">
+                          <button
+                            type="submit"
+                            className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-6 rounded-md transition duration-300"
+                          >
+                            Submit Request
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowReturnForm(false)}
+                            className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-6 rounded-md transition duration-300"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4">Return Window Closed</h2>
+                    <p className="text-gray-600">This product is no longer eligible for return or refund. Our return policy allows requests within 3 days of delivery only.</p>
+                  </div>
                 )}
-              </div>
-            )}
-            {!isWithinReturnPeriod() && order.status === 'Delivered' && (
-              <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-                <h2 className="text-xl font-semibold mb-4">Return Window Closed</h2>
-                <p className="text-gray-600">This product is no longer eligible for return or refund. Our return policy allows requests within 3 days of delivery only.</p>
               </div>
             )}
           </div>
