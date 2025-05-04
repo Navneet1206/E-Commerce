@@ -6,15 +6,8 @@ import { ShopContext } from '../context/ShopContext';
 const NavBar = () => {
     const [visible, setVisible] = useState(false);
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-    const { getCartCount, token, setToken, setCartItems } = useContext(ShopContext);
+    const { getCartCount, token, logout } = useContext(ShopContext);
     const navigate = useNavigate();
-
-    const logout = () => {
-        localStorage.removeItem('token');
-        setToken('');
-        setCartItems({});
-        navigate('/login');
-    };
 
     const toggleProfileMenu = () => {
         setProfileMenuOpen(!profileMenuOpen);

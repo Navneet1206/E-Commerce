@@ -10,7 +10,7 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isForgetPassword, setIsForgetPassword] = useState(false);
-  const [forgetStep, setForgetStep] = useState(1); // 1: enter email, 2: enter code and new password
+  const [forgetStep, setForgetStep] = useState(1);
   const [forgetEmail, setForgetEmail] = useState('');
   const [forgetCode, setForgetCode] = useState('');
   const [forgetNewPassword, setForgetNewPassword] = useState('');
@@ -27,7 +27,8 @@ const Login = () => {
       if (response.data.success) {
         setToken(response.data.token);
         localStorage.setItem('token', response.data.token);
-        await mergeCart(); // Merge local cart with backend cart during login
+        localStorage.setItem('logoutTime', (Date.now() + 19 * 60 * 60 * 1000).toString());
+        await mergeCart();
         toast.success('Login successful');
         navigate('/');
       } else {

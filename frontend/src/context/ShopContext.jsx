@@ -366,6 +366,26 @@ const ShopContextProvider = (props) => {
     }
   };
 
+  const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('logoutTime');
+    setToken('');
+    setCartItems({});
+    navigate('/login');
+  };
+
+  useEffect(() => {
+    const checkLogoutTime = () => {
+      const logoutTime = localStorage.getItem('logoutTime');
+      if (logoutTime && Date.now() > parseInt(logoutTime)) {
+        logout();
+      }
+    };
+    checkLogoutTime();
+    const interval = setInterval(checkLogoutTime, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     getProductsData();
   }, []);
@@ -416,7 +436,8 @@ const ShopContextProvider = (props) => {
     getWishlistCount,
     getDiscountedPrice,
     globalDiscounts,
-    userDiscounts
+    userDiscounts,
+    logout
   };
 
   return <ShopContext.Provider value={value}>{props.children}</ShopContext.Provider>;
