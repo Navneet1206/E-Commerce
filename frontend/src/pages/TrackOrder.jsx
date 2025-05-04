@@ -3,83 +3,17 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ShopContext } from '../context/ShopContext';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { Package, Truck, Home, CreditCard, Clock, CheckCircle, X, Printer } from 'lucide-react';
+import { Package, Truck, Home, CreditCard, Clock, CheckCircle, X, Printer, Upload } from 'lucide-react';
 
 const TrackOrder = () => {
   const { idoforder } = useParams();
   const { backendUrl, token, currency } = useContext(ShopContext);
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showReturnForm, setShowReturnForm] = useState(false);
+  const [returnReason, setReturnReason] = useState('');
+  const [returnImages, setReturnImages] = useState([null, null]);
   const navigate = useNavigate();
-  
-  // Function to handle printing with custom styling
-  const handlePrint = () => {
-    // Add a print-specific stylesheet to the document head
-    const style = document.createElement('style');
-    style.innerHTML = `
-      @media print {
-        /* Hide navigation, footer, and other page elements */
-        nav, footer, header, .no-print {
-          display: none !important;
-        }
-        
-        /* Make the order details take up the full page */
-        .print-container {
-          position: absolute;
-          left: 0;
-          top: 0;
-          width: 100%;
-          background-color: white;
-          padding: 20px;
-          box-shadow: none;
-        }
-        
-        /* Remove unneeded styling for print */
-        .print-hide {
-          display: none !important;
-        }
-        
-        /* Ensure all content is visible */
-        .print-content {
-          display: block !important;
-          page-break-inside: avoid;
-        }
-        
-        /* Adjust colors for better printing */
-        body {
-          color: black;
-          background-color: white;
-        }
-        
-        /* Make sure links don't show underlines and URLs */
-        a {
-          text-decoration: none !important;
-          color: black !important;
-        }
-        
-        /* Reset background colors */
-        .bg-blue-600, .bg-gray-50, .bg-gray-200 {
-          background-color: white !important;
-          color: black !important;
-        }
-        
-        /* Ensure text is black for better printing */
-        .text-blue-600, .text-gray-500, .text-gray-600 {
-          color: black !important;
-        }
-      }
-    `;
-    
-    document.head.appendChild(style);
-    
-    // Print the page
-    window.print();
-    
-    // Remove the style element after printing
-    setTimeout(() => {
-      document.head.removeChild(style);
-    }, 1000);
-  };
 
   const fetchOrder = async () => {
     try {
@@ -88,20 +22,86 @@ const TrackOrder = () => {
         navigate('/login');
         return;
       }
-      const response = await axios.get(`${backendUrl}/api/order/${idoforder}`, {
-        headers: { token },
-      });
+      const response = await axios.get(`${backendUrl}/api/order/${idoforder}`, { headers: { token } });
       if (response.data.success) {
         setOrder(response.data.order);
       } else {
         toast.error(response.data.message);
       }
     } catch (error) {
-      console.error("Error fetching order:", error);
       toast.error(error.response?.data?.message || "Error fetching order details");
     } finally {
       setLoading(false);
     }
+  };
+
+  const isWithinReturnPeriod = () => {
+    if (!order?.deliveryDate) return false;
+    const deliveryDate = new Date(order.deliveryDate);
+    const currentDate = new Date();
+    const diffTime = currentDate - deliveryDate;
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+    return diffDays <= 3 && order.status === 'Delivered';
+  };
+
+  const handleReturnSubmit = async (e) => {
+    e.preventDefault();
+    if (!returnReason) {
+      toast.error("Please select a reason for return");
+      return;
+    }
+
+    try {
+      console.log("Submitting return with token:", token);
+      console.log("Order:", order);
+      const formData = new FormData();
+      formData.append('orderId', order._id);
+      formData.append('reason', returnReason);
+      formData.append('userId', order.userId); // Ensure userId is included
+      returnImages.forEach((image, index) => {
+        if (image) formData.append(`image${index + 1}`, image);
+      });
+
+      const response = await axios.post(`${backendUrl}/api/order/return-refund`, formData, {
+        headers: { token, 'Content-Type': 'multipart/form-data' }
+      });
+
+      if (response.data.success) {
+        toast.success("Return/Refund request submitted");
+        setShowReturnForm(false);
+        fetchOrder();
+      } else {
+        toast.error(response.data.message);
+      }
+    } catch (error) {
+      console.error("Return Submit Error:", error.response?.data);
+      toast.error(error.response?.data?.message || "Error submitting return request");
+    }
+  };
+
+  const handleImageChange = (index, file) => {
+    const updatedImages = [...returnImages];
+    updatedImages[index] = file;
+    setReturnImages(updatedImages);
+  };
+
+  const handlePrint = () => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @media print {
+        nav, footer, header, .no-print { display: none !important; }
+        .print-container { position: absolute; left: 0; top: 0; width: 100%; background-color: white; padding: 20px; box-shadow: none; }
+        .print-hide { display: none !important; }
+        .print-content { display: block !important; page-break-inside: avoid; }
+        body { color: black; background-color: white; }
+        a { text-decoration: none !important; color: black !important; }
+        .bg-blue-600, .bg-gray-50, .bg-gray-200 { background-color: white !important; color: black !important; }
+        .text-blue-600, .text-gray-500, .text-gray-600 { color: black !important; }
+      }
+    `;
+    document.head.appendChild(style);
+    window.print();
+    setTimeout(() => document.head.removeChild(style), 1000);
   };
 
   useEffect(() => {
@@ -120,10 +120,7 @@ const TrackOrder = () => {
         <X className="mx-auto h-16 w-16 text-red-500 mb-4" />
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Order Not Found</h2>
         <p className="text-gray-600 mb-6">We couldn't find any order with the provided ID.</p>
-        <button 
-          onClick={() => navigate('/orders')} 
-          className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md transition duration-300"
-        >
+        <button onClick={() => navigate('/orders')} className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md transition duration-300">
           View All Orders
         </button>
       </div>
@@ -132,7 +129,6 @@ const TrackOrder = () => {
 
   const statusOrder = ['Order Placed', 'Packing', 'Shipped', 'Out for delivery', 'Delivered'];
   const currentStatusIndex = statusOrder.indexOf(order.status);
-  
   const statusIcons = [
     <Clock className="w-5 h-5" />,
     <Package className="w-5 h-5" />,
@@ -148,23 +144,19 @@ const TrackOrder = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      <div className="container mx-auto px-4 py-8 max-w-5xl">
+      <div className="container mx-auto px-4 py-8 max-w-5xl print-container">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-800">Order Tracking</h1>
           <p className="text-gray-600">Track the status of your order #{order._id}</p>
         </div>
 
-        {/* Order Summary Card */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
           <div className="bg-blue-600 text-white p-4">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">Order Summary</h2>
-              <span className="bg-white text-blue-600 px-3 py-1 rounded-full text-sm font-medium">
-                {order.status}
-              </span>
+              <span className="bg-white text-blue-600 px-3 py-1 rounded-full text-sm font-medium">{order.status}</span>
             </div>
           </div>
-          
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               <div>
@@ -183,66 +175,31 @@ const TrackOrder = () => {
           </div>
         </div>
 
-        {/* Status Timeline */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <h2 className="text-xl font-semibold mb-6">Delivery Status</h2>
-          
           <div className="relative">
-            {/* Progress Bar */}
             <div className="hidden md:block absolute left-0 top-1/2 w-full h-1 bg-gray-200 -translate-y-1/2 z-0">
-              <div 
-                className="h-full bg-blue-500 transition-all duration-500" 
-                style={{ 
-                  width: `${currentStatusIndex >= 0 ? (currentStatusIndex / (statusOrder.length - 1)) * 100 : 0}%` 
-                }}
-              ></div>
+              <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${currentStatusIndex >= 0 ? (currentStatusIndex / (statusOrder.length - 1)) * 100 : 0}%` }}></div>
             </div>
-            
-            {/* Status Steps - Desktop */}
             <div className="hidden md:flex justify-between relative z-10">
               {statusOrder.map((status, index) => (
                 <div key={status} className="flex flex-col items-center">
-                  <div 
-                    className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      index <= currentStatusIndex ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
-                    } transition duration-300`}
-                  >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${index <= currentStatusIndex ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'} transition duration-300`}>
                     {statusIcons[index]}
                   </div>
-                  <p className={`text-sm mt-2 text-center max-w-xs ${
-                    index <= currentStatusIndex ? 'text-blue-600 font-medium' : 'text-gray-500'
-                  }`}>
-                    {status}
-                  </p>
+                  <p className={`text-sm mt-2 text-center max-w-xs ${index <= currentStatusIndex ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>{status}</p>
                 </div>
               ))}
             </div>
-            
-            {/* Status Steps - Mobile */}
             <div className="md:hidden space-y-6">
               {statusOrder.map((status, index) => (
-                <div 
-                  key={status} 
-                  className={`flex items-center ${
-                    index <= currentStatusIndex ? 'text-blue-600' : 'text-gray-500'
-                  }`}
-                >
-                  <div 
-                    className={`w-10 h-10 rounded-full flex items-center justify-center mr-4 ${
-                      index <= currentStatusIndex ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
-                    }`}
-                  >
+                <div key={status} className={`flex items-center ${index <= currentStatusIndex ? 'text-blue-600' : 'text-gray-500'}`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-4 ${index <= currentStatusIndex ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>
                     {statusIcons[index]}
                   </div>
                   <div>
-                    <p className={`font-medium ${
-                      index <= currentStatusIndex ? 'text-blue-600' : 'text-gray-500'
-                    }`}>
-                      {status}
-                    </p>
-                    {index === currentStatusIndex && (
-                      <p className="text-sm text-blue-500">Current Status</p>
-                    )}
+                    <p className={`font-medium ${index <= currentStatusIndex ? 'text-blue-600' : 'text-gray-500'}`}>{status}</p>
+                    {index === currentStatusIndex && <p className="text-sm text-blue-500">Current Status</p>}
                   </div>
                 </div>
               ))}
@@ -251,26 +208,17 @@ const TrackOrder = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Order Items */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-lg shadow-md p-6 mb-8">
               <h2 className="text-xl font-semibold mb-4 flex items-center">
                 <Package className="mr-2 w-5 h-5 text-blue-600" />
                 Order Items
               </h2>
-              
               <div className="space-y-4">
                 {order.items.map((item, index) => (
-                  <div 
-                    key={index} 
-                    className="flex items-center border-b pb-4 last:border-b-0 last:pb-0"
-                  >
+                  <div key={index} className="flex items-center border-b pb-4 last:border-b-0 last:pb-0">
                     <div className="w-20 h-20 rounded-md overflow-hidden flex-shrink-0 bg-gray-100">
-                      <img
-                        src={item.images[0]}
-                        alt={item.name}
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={item.images[0]} alt={item.name} className="w-full h-full object-cover" />
                     </div>
                     <div className="ml-4 flex-grow">
                       <p className="font-medium text-gray-800">{item.name}</p>
@@ -286,10 +234,85 @@ const TrackOrder = () => {
                 ))}
               </div>
             </div>
+
+            {isWithinReturnPeriod() && (
+              <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h2 className="text-xl font-semibold mb-4">Return / Refund Request</h2>
+                <p className="text-gray-600 mb-4">You can request a return or refund within 3 days of delivery.</p>
+                {!showReturnForm ? (
+                  <button
+                    onClick={() => setShowReturnForm(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md transition duration-300"
+                  >
+                    Request Return/Refund
+                  </button>
+                ) : (
+                  <form onSubmit={handleReturnSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Reason for Return</label>
+                      <select
+                        value={returnReason}
+                        onChange={(e) => setReturnReason(e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                        required
+                      >
+                        <option value="">Select Reason</option>
+                        <option value="wrong_item">Wrong item received</option>
+                        <option value="damaged">Damaged or defective product</option>
+                        <option value="size_fit">Size or fit issue</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Upload Photos (Optional, Max 2)</label>
+                      <div className="flex gap-4">
+                        {[0, 1].map((index) => (
+                          <div key={index} className="flex flex-col items-center">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleImageChange(index, e.target.files[0])}
+                              className="mb-2"
+                            />
+                            {returnImages[index] && (
+                              <img
+                                src={URL.createObjectURL(returnImages[index])}
+                                alt={`Return Image ${index + 1}`}
+                                className="w-20 h-20 object-cover rounded-md"
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex gap-4">
+                      <button
+                        type="submit"
+                        className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-6 rounded-md transition duration-300"
+                      >
+                        Submit Request
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowReturnForm(false)}
+                        className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-6 rounded-md transition duration-300"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
+            {!isWithinReturnPeriod() && order.status === 'Delivered' && (
+              <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h2 className="text-xl font-semibold mb-4">Return Window Closed</h2>
+                <p className="text-gray-600">This product is no longer eligible for return or refund. Our return policy allows requests within 3 days of delivery only.</p>
+              </div>
+            )}
           </div>
 
           <div className="lg:col-span-1">
-            {/* Shipping Address */}
             <div className="bg-white rounded-lg shadow-md p-6 mb-8">
               <h2 className="text-xl font-semibold mb-4 flex items-center">
                 <Home className="mr-2 w-5 h-5 text-blue-600" />
@@ -300,13 +323,10 @@ const TrackOrder = () => {
                 <p className="mt-2">{order.address.street}</p>
                 <p>{order.address.city}, {order.address.state}, {order.address.zipcode}</p>
                 <p>{order.address.country}</p>
-                <p className="mt-2">
-                  <span className="font-medium">Phone:</span> {order.address.phone}
-                </p>
+                <p className="mt-2"><span className="font-medium">Phone:</span> {order.address.phone}</p>
               </div>
             </div>
 
-            {/* Payment Details */}
             <div className="bg-white rounded-lg shadow-md p-6">
               <h2 className="text-xl font-semibold mb-4 flex items-center">
                 <CreditCard className="mr-2 w-5 h-5 text-blue-600" />
@@ -327,20 +347,14 @@ const TrackOrder = () => {
             </div>
           </div>
         </div>
-        
-        {/* Action Buttons */}
-        <div className="flex flex-wrap justify-center mt-8 gap-4">
-          <button 
-            onClick={() => navigate('/orders')} 
-            className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-6 rounded-md transition duration-300"
-          >
+
+        <div className="flex flex-wrap justify-center mt-8 gap-4 no-print">
+          <button onClick={() => navigate('/orders')} className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-6 rounded-md transition duration-300">
             Back to Orders
           </button>
-          <button 
-            onClick={() => handlePrint()} 
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md transition duration-300 flex items-center"
-          >
-            <Printer className="w-4 h-4 mr-2" /> Print Order Details
+          <button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md transition duration-300 flex items-center">
+            <Printer className="w-5 h-5 mr-2" />
+            Print Order
           </button>
         </div>
       </div>

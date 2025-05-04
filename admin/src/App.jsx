@@ -11,6 +11,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import Wishlist from './pages/Wishlist';
 import Edit from './pages/Edit';
 import Discount from './pages/Discount';
+import ReturnRefund from './pages/ReturnRefund';
 
 export const backendUrl = import.meta.env.VITE_BACKEND_URL
 console.log("Backend URL:", backendUrl);
@@ -41,6 +42,7 @@ const App = () => {
                 <Route path="/wishlists" element={<Wishlist token={token} />} />
                 <Route path="/edit/:productId" element={<Edit token={token} />} />
                 <Route path="/discounts" element={<Discount token={token} />} />
+                <Route path="/return-refund" element={<ReturnRefund token={token} />} />
               </Routes>
             </div>
           </div>

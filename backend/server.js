@@ -8,6 +8,7 @@ import productRouter from './routes/productRoute.js';
 import cartRouter from './routes/cartRoute.js';
 import orderRouter from './routes/orderRoute.js';
 import discountRouter from './routes/discountRoute.js';
+import returnRefundRouter from './routes/returnRefundRoute.js';
 import './models/couponUsageModel.js';
 import { computeRecommendationData } from './controllers/recommendation.js';
 
@@ -27,6 +28,7 @@ app.use('/api/product', productRouter);
 app.use('/api/cart', cartRouter);
 app.use('/api/order', orderRouter);
 app.use('/api/discount', discountRouter);
+app.use('/api/return-refund', returnRefundRouter);
 app.get('/', (req, res) => {
     res.send("API working");
 });

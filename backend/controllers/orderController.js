@@ -1,4 +1,3 @@
-// backend/controllers/orderController.js
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
 import productModel from "../models/productModel.js";
@@ -9,6 +8,9 @@ import CouponUsage from "../models/couponUsageModel.js";
 import Discount from "../models/Discount.js";
 import { sendOrderUpdateEmail, sendOrderBookingEmail, sendOrderNotificationToAdmin } from "../config/sendmessage.js";
 import PDFDocument from 'pdfkit';
+import ReturnRefund from "../models/returnRefundModel.js";
+import { v2 as cloudinary } from 'cloudinary';
+import fs from 'fs/promises';
 
 dotenv.config();
 
@@ -89,7 +91,6 @@ const validateCoupon = async (couponCode, userId, cartItems) => {
   return { valid: true, discountPercent: coupons[couponCode], discount, message: `Coupon applied! ${coupons[couponCode]}% off eligible items.` };
 };
 
-// New endpoint to validate coupon
 const validateCouponEndpoint = async (req, res) => {
   try {
     const { couponCode, userId, items } = req.body;
@@ -390,39 +391,32 @@ const generateInvoice = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
 
-    // Create PDF document
     const doc = new PDFDocument({
       margins: { top: 50, bottom: 50, left: 50, right: 50 },
       size: 'A4'
     });
 
-    // Set response headers
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=invoice-${orderId}.pdf`);
     doc.pipe(res);
 
-    // Define colors and styles
     const primaryColor = '#4F6D7A';
     const secondaryColor = '#86B3D1';
     const textColor = '#333333';
     const lightGray = '#EEEEEE';
 
-    // Company Logo and Info (Header)
     doc.fontSize(10).fillColor(textColor).text('Your Company Name', 50, 50, { align: 'left' });
     doc.fontSize(8).text('123 Business Street, City, Country', 50, 65, { align: 'left' });
     doc.text('Email: contact@yourcompany.com', 50, 80, { align: 'left' });
     doc.text('Phone: +1 234 567 890', 50, 95, { align: 'left' });
 
-    // Invoice Title and Number
     doc.fontSize(24).fillColor(primaryColor).text('INVOICE', 400, 50, { align: 'right' });
     doc.fontSize(10).fillColor(textColor).text(`Invoice #: INV-${orderId.substring(0, 8).toUpperCase()}`, 400, 80, { align: 'right' });
     doc.text(`Date: ${new Date(order.date).toLocaleDateString()}`, 400, 95, { align: 'right' });
     doc.text(`Due Date: ${new Date(new Date(order.date).getTime() + 30*24*60*60*1000).toLocaleDateString()}`, 400, 110, { align: 'right' });
 
-    // Horizontal line
     doc.strokeColor(lightGray).lineWidth(1).moveTo(50, 130).lineTo(550, 130).stroke();
 
-    // Billing Information
     doc.fontSize(12).fillColor(primaryColor).text('Bill To:', 50, 150);
     doc.fontSize(10).fillColor(textColor).text(`${order.address.firstName} ${order.address.lastName}`, 50, 170);
     doc.text(order.address.email, 50, 185);
@@ -430,13 +424,11 @@ const generateInvoice = async (req, res) => {
     doc.text(`${order.address.city}, ${order.address.state} ${order.address.zipcode}`, 50, 215);
     doc.text(order.address.country, 50, 230);
 
-    // Payment Details
     doc.fontSize(12).fillColor(primaryColor).text('Payment Details:', 300, 150);
     doc.fontSize(10).fillColor(textColor).text(`Payment Method: ${order.paymentMethod || 'Credit Card'}`, 300, 170);
     doc.text(`Order ID: ${order._id}`, 300, 185);
     doc.text(`Order Date: ${new Date(order.date).toLocaleDateString()}`, 300, 200);
-    
-    // Items Table Header
+
     const tableTop = 270;
     doc.fontSize(10).fillColor(primaryColor);
     doc.rect(50, tableTop, 500, 20).fill();
@@ -447,14 +439,12 @@ const generateInvoice = async (req, res) => {
     doc.text('Unit Price', 350, tableTop + 5, { width: 100, align: 'right' });
     doc.text('Amount', 450, tableTop + 5, { width: 90, align: 'right' });
 
-    // Items
     let y = tableTop + 30;
     let subtotal = 0;
     order.items.forEach((item, index) => {
       const lineHeight = 20;
       const isEvenRow = index % 2 === 0;
       
-      // Alternate row background
       if (isEvenRow) {
         doc.rect(50, y - 5, 500, lineHeight).fill(lightGray);
       }
@@ -475,17 +465,14 @@ const generateInvoice = async (req, res) => {
       y += lineHeight;
     });
 
-    // Calculate totals
-    const tax = subtotal * 0.1; // 10% tax (example)
+    const tax = subtotal * 0.1;
     const shipping = order.shipping || 0;
     const total = subtotal + tax + shipping;
 
-    // Draw bottom line
     y += 10;
     doc.strokeColor(lightGray).lineWidth(1).moveTo(50, y).lineTo(550, y).stroke();
     y += 20;
 
-    // Totals
     doc.fontSize(10);
     doc.text('Subtotal:', 400, y, { width: 70, align: 'right' });
     doc.text(`$${subtotal.toFixed(2)}`, 470, y, { width: 80, align: 'right' });
@@ -499,24 +486,19 @@ const generateInvoice = async (req, res) => {
     doc.text(`$${shipping.toFixed(2)}`, 470, y, { width: 80, align: 'right' });
     y += 20;
     
-    // Total
     doc.fontSize(12).fillColor(primaryColor);
     doc.rect(400, y-5, 150, 25).fillAndStroke(primaryColor, primaryColor);
     doc.fillColor('#FFFFFF');
     doc.text('TOTAL:', 400, y, { width: 70, align: 'right' });
     doc.text(`$${total.toFixed(2)}`, 470, y, { width: 80, align: 'right' });
 
-    // Notes
     y += 50;
     doc.fontSize(10).fillColor(primaryColor).text('Notes:', 50, y);
     doc.fontSize(9).fillColor(textColor).text('Payment is due within 30 days. Please include the invoice number with your payment.', 50, y + 15, { width: 400 });
 
-    // Footer
     const footerTop = doc.page.height - 50;
     doc.fontSize(8).fillColor(textColor).text('Thank you for your business!', 50, footerTop, { align: 'center', width: 500 });
     doc.text(`Invoice generated on ${new Date().toLocaleString()}`, 50, footerTop + 15, { align: 'center', width: 500 });
-
-    // Add page number to the current page only
     doc.text(`Page 1`, 50, footerTop + 30, { align: 'center', width: 500 });
 
     doc.end();
@@ -551,6 +533,67 @@ const confirmPayment = async (req, res) => {
   }
 };
 
+const requestReturnRefund = async (req, res) => {
+  try {
+    const { orderId, reason } = req.body;
+    const userId = req.body.userId;
+
+    if (!orderId || !reason) return res.status(400).json({ success: false, message: "Order ID and reason are required" });
+
+    const order = await orderModel.findById(orderId);
+    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+    if (order.userId !== userId) return res.status(403).json({ success: false, message: "Unauthorized" });
+    if (order.status !== 'Delivered') return res.status(400).json({ success: false, message: "Order must be delivered to request a return" });
+
+    const deliveryDate = new Date(order.deliveryDate);
+    const currentDate = new Date();
+    const diffTime = currentDate - deliveryDate;
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+    if (diffDays > 3) return res.status(400).json({ success: false, message: "Return period has expired" });
+
+    const existingRequest = await ReturnRefund.findOne({ orderId });
+    if (existingRequest) return res.status(400).json({ success: false, message: "Return/Refund request already submitted" });
+
+    const imageUploads = [
+      req.files.image1 ? req.files.image1[0] : null,
+      req.files.image2 ? req.files.image2[0] : null,
+    ].filter(file => file !== null);
+
+    const images = [];
+    for (const file of imageUploads) {
+      try {
+        const result = await cloudinary.uploader.upload(file.path, { folder: 'return_refund_images' });
+        images.push(result.secure_url);
+        await fs.unlink(file.path);
+      } catch (uploadError) {
+        for (const f of imageUploads) await fs.unlink(f.path).catch(() => {});
+        return res.status(500).json({ success: false, message: "Failed to upload images to Cloudinary" });
+      }
+    }
+
+    const returnRefundData = {
+      orderId,
+      userId,
+      reason,
+      images,
+      status: 'Pending'
+    };
+
+    const newRequest = new ReturnRefund(returnRefundData);
+    await newRequest.save();
+
+    res.json({ success: true, message: "Return/Refund request submitted successfully" });
+  } catch (error) {
+    if (req.files) {
+      for (const key of ['image1', 'image2']) {
+        if (req.files[key]) await fs.unlink(req.files[key][0].path).catch(() => {});
+      }
+    }
+    console.error("Request Return/Refund Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export {
   placeOrder,
   placeOrderRazorpay,
@@ -561,5 +604,6 @@ export {
   getOrderById,
   generateInvoice,
   confirmPayment,
-  validateCouponEndpoint
+  validateCouponEndpoint,
+  requestReturnRefund
 };
