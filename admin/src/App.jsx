@@ -12,37 +12,49 @@ import Wishlist from './pages/Wishlist';
 import Edit from './pages/Edit';
 import Discount from './pages/Discount';
 import ReturnRefund from './pages/ReturnRefund';
+import ManageUsers from './pages/ManageUsers';
 
 export const backendUrl = import.meta.env.VITE_BACKEND_URL
 console.log("Backend URL:", backendUrl);
 export const currency = '₹';
 
 const App = () => {
-  const [token, setToken] = useState(localStorage.getItem('token')?localStorage.getItem('token'):''); 
-  useEffect(()=>{
-    localStorage.setItem('token', token)
-  }, [token])
+  const [token, setToken] = useState(localStorage.getItem('token') || ''); 
+  const [role, setRole] = useState(localStorage.getItem('role') || '');
+
+  useEffect(() => {
+    localStorage.setItem('token', token);
+    localStorage.setItem('role', role);
+  }, [token, role]);
+
+  const ProtectedRoute = ({ element, allowedRoles }) => {
+    if (!allowedRoles.includes(role)) {
+      return <div className="text-center py-10">Access Denied</div>;
+    }
+    return element;
+  };
 
   return (
     <div className="bg-gray-50 min-h-screen">
       <ToastContainer/>
       {token === '' ? (
-        <Login setToken={setToken} />
+        <Login setToken={setToken} setRole={setRole} />
       ) : (
         <>
-          <NavBar setToken={setToken} />
+          <NavBar setToken={setToken} setRole={setRole} />
           <hr />
           <div className="flex w-full">
-            <Sidebar />
+            <Sidebar role={role} />
             <div className="flex-1 mx-8 my-8 text-gray-700 text-base">
               <Routes>
-                <Route path="/add" element={<Add token={token}/>} />
-                <Route path="/list" element={<List token={token} />} />
-                <Route path="/order" element={<Orders token={token} />} />
-                <Route path="/wishlists" element={<Wishlist token={token} />} />
-                <Route path="/edit/:productId" element={<Edit token={token} />} />
-                <Route path="/discounts" element={<Discount token={token} />} />
-                <Route path="/return-refund" element={<ReturnRefund token={token} />} />
+                <Route path="/add" element={<ProtectedRoute element={<Add token={token}/>} allowedRoles={['admin', 'manager']} />} />
+                <Route path="/list" element={<ProtectedRoute element={<List token={token}/>} allowedRoles={['admin', 'manager']} />} />
+                <Route path="/order" element={<ProtectedRoute element={<Orders token={token}/>} allowedRoles={['admin', 'logistics']} />} />
+                <Route path="/wishlists" element={<ProtectedRoute element={<Wishlist token={token}/>} allowedRoles={['admin', 'manager']} />} />
+                <Route path="/edit/:productId" element={<ProtectedRoute element={<Edit token={token}/>} allowedRoles={['admin', 'manager']} />} />
+                <Route path="/discounts" element={<ProtectedRoute element={<Discount token={token}/>} allowedRoles={['admin']} />} />
+                <Route path="/return-refund" element={<ProtectedRoute element={<ReturnRefund token={token}/>} allowedRoles={['admin', 'logistics']} />} />
+                <Route path="/manage-users" element={<ProtectedRoute element={<ManageUsers token={token}/>} allowedRoles={['admin']} />} />
               </Routes>
             </div>
           </div>

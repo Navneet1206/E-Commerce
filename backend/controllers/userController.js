@@ -99,8 +99,8 @@ const adminLogin = async (req, res) => {
     if (!user) {
       return res.json({ success: false, message: "User doesn't exist" });
     }
-    if (user.role !== "admin") {
-      return res.json({ success: false, message: "Access denied: Admins only" });
+    if (!["admin", "manager", "logistics"].includes(user.role)) {
+      return res.json({ success: false, message: "Access denied: Not authorized" });
     }
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
@@ -159,7 +159,7 @@ const deleteAddress = async (req, res) => {
     }
     user.addresses = user.addresses.filter((addr) => addr._id.toString() !== addressId);
     await user.save();
-    res.json({ success: true, message: "Address deleted" });
+    res.json({ success: false, message: "Address deleted" });
   } catch (error) {
     console.error("Delete address error:", error);
     res.json({ success: false, message: error.message });
@@ -344,6 +344,44 @@ const addMultipleToWishlist = async (req, res) => {
   }
 };
 
+const createSubAdmin = async (req, res) => {
+  try {
+    console.log("Full request body:", req.body); // Log the entire request body
+    const { name, email, password, role } = req.body;
+    console.log("Extracted role:", role); // Log the role specifically
+    if (!["manager", "logistics"].includes(role)) {
+      return res.json({ success: false, message: `Invalid role: ${role}` });
+    }
+    const exists = await userModel.findOne({ email });
+    if (exists) {
+      return res.json({ success: false, message: "User already exists" });
+    }
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    const newUser = new userModel({
+      name,
+      email,
+      password: hashedPassword,
+      role,
+    });
+    await newUser.save();
+    res.json({ success: true, message: "Sub-admin created successfully" });
+  } catch (error) {
+    console.error("Create sub-admin error:", error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+const listSubAdmins = async (req, res) => {
+  try {
+    const subAdmins = await userModel.find({ role: { $in: ["manager", "logistics"] } }, 'name email role');
+    res.json({ success: true, subAdmins });
+  } catch (error) {
+    console.error("List sub-admins error:", error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
 export { 
   loginUser, 
   registerUser, 
@@ -361,5 +399,7 @@ export {
   getWishlist, 
   getAllWishlists,
   getWishlistedProducts,
-  addMultipleToWishlist 
+  addMultipleToWishlist,
+  createSubAdmin,
+  listSubAdmins
 };
