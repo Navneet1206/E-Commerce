@@ -26,7 +26,11 @@ const TrackOrder = () => {
       }
       const response = await axios.get(`${backendUrl}/api/order/${idoforder}`, { headers: { token } });
       if (response.data.success) {
-        setOrder(response.data.order);
+        const fetchedOrder = response.data.order;
+        if (fetchedOrder.status === 'Delivered' && new Date(fetchedOrder.deliveryDate) > new Date()) {
+          fetchedOrder.deliveryDate = new Date();
+        }
+        setOrder(fetchedOrder);
       } else {
         toast.error(response.data.message);
       }
@@ -41,12 +45,16 @@ const TrackOrder = () => {
     try {
       const response = await axios.get(`${backendUrl}/api/return-refund/order/${idoforder}`, { headers: { token } });
       if (response.data.success) {
-        // Ensure description is included in the response
+        const request = response.data.request;
+        if (request.status === 'Refund Initiated' && request.pickupDate && new Date(request.pickupDate) > new Date()) {
+          request.pickupDate = new Date();
+        }
         setReturnRequest({
-          status: response.data.request.status,
-          reason: response.data.request.reason,
-          description: response.data.request.description || 'No description provided',
-          images: response.data.request.images || []
+          status: request.status,
+          reason: request.reason,
+          description: request.description || 'No description provided',
+          images: request.images || [],
+          pickupDate: request.pickupDate || null
         });
       } else {
         setReturnRequest(null);
@@ -75,6 +83,14 @@ const TrackOrder = () => {
       toast.error("Please provide a description for the return");
       return;
     }
+    if (!order?._id) {
+      toast.error("Order ID is missing");
+      return;
+    }
+    if (!order?.userId) {
+      toast.error("User ID is missing");
+      return;
+    }
 
     try {
       const formData = new FormData();
@@ -82,12 +98,24 @@ const TrackOrder = () => {
       formData.append('reason', returnReason);
       formData.append('description', returnDescription);
       formData.append('userId', order.userId);
+
+      // Append images
       returnImages.forEach((image, index) => {
-        if (image) formData.append(`image${index + 1}`, image);
+        if (image) {
+          formData.append('images', image);
+        }
       });
 
-      const response = await axios.post(`${backendUrl}/api/order/return-refund`, formData, {
-        headers: { token, 'Content-Type': 'multipart/form-data' }
+      // Debug: Log FormData contents
+      for (let pair of formData.entries()) {
+        console.log(`${pair[0]}: ${pair[1]}`);
+      }
+
+      const response = await axios.post(`${backendUrl}/api/return-refund/request`, formData, {
+        headers: { 
+          token, 
+          'Content-Type': 'multipart/form-data' 
+        }
       });
 
       if (response.data.success) {
@@ -101,6 +129,7 @@ const TrackOrder = () => {
         toast.error(response.data.message);
       }
     } catch (error) {
+      console.error("Return submission error:", error);
       toast.error(error.response?.data?.message || "Error submitting return request");
     }
   };
@@ -165,7 +194,7 @@ const TrackOrder = () => {
   ];
 
   const formatDate = (dateString) => {
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
@@ -191,7 +220,7 @@ const TrackOrder = () => {
                 <p className="font-medium">{formatDate(order.date)}</p>
               </div>
               <div>
-                <p className="text-gray-500 text-sm mb-1">Estimated Delivery</p>
+                <p className="text-gray-500 text-sm mb-1">Delivery Date</p>
                 <p className="font-medium">{formatDate(order.deliveryDate)}</p>
               </div>
               <div>
@@ -279,6 +308,7 @@ const TrackOrder = () => {
                           <th className="px-4 py-2 text-left font-medium">Reason</th>
                           <th className="px-4 py-2 text-left font-medium">Description</th>
                           <th className="px-4 py-2 text-left font-medium">Images</th>
+                          {returnRequest.pickupDate && <th className="px-4 py-2 text-left font-medium">Pickup Date</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -295,6 +325,9 @@ const TrackOrder = () => {
                               </div>
                             ) : 'None'}
                           </td>
+                          {returnRequest.pickupDate && (
+                            <td className="px-4 py-2 whitespace-nowrap text-gray-700">{formatDate(returnRequest.pickupDate)}</td>
+                          )}
                         </tr>
                       </tbody>
                     </table>

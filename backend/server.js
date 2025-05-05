@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import fileUpload from 'express-fileupload';
 import 'dotenv/config';
 import connectDB from './config/mongodb.js';
 import connectCloudinary from './config/cloudinary.js';
@@ -21,6 +22,11 @@ connectCloudinary();
 // Middlewares
 app.use(express.json());
 app.use(cors());
+app.use(fileUpload({
+  useTempFiles: true,
+  tempFileDir: '/tmp/',
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB file size limit
+}));
 
 // API endpoints
 app.use('/api/user', userRouter);

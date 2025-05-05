@@ -4,6 +4,7 @@ const returnRefundSchema = new mongoose.Schema({
   orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'order', required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true },
   reason: { type: String, required: true },
+  description: { type: String, required: true }, 
   images: { type: [String], default: [] },
   status: { 
     type: String, 

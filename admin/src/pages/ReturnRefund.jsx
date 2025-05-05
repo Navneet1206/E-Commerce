@@ -53,13 +53,17 @@ const ReturnRefund = ({ token }) => {
       setSelectedDate('');
     } else {
       try {
+        const updateData = { requestId, status };
+        if (status === 'Refund Initiated' && !requests.find(req => req._id === requestId).pickupDate) {
+          updateData.pickupDate = new Date();
+        }
         const response = await axios.post(
           `${backendUrl}api/return-refund/update-status`,
-          { requestId, status },
+          updateData,
           { headers: { token } }
         );
         if (response.data.success) {
-          setRequests(requests.map(req => req._id === requestId ? { ...req, status } : req));
+          setRequests(requests.map(req => req._id === requestId ? { ...req, status, pickupDate: updateData.pickupDate || req.pickupDate } : req));
           toast.success('Status updated successfully');
         } else {
           toast.error(response.data.message);
@@ -82,6 +86,11 @@ const ReturnRefund = ({ token }) => {
     } catch (error) {
       toast.error(error.response?.data?.message || 'Error deleting request');
     }
+  };
+
+  const formatDate = (dateString) => {
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+    return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
   if (error) {
@@ -115,23 +124,20 @@ const ReturnRefund = ({ token }) => {
                 <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">Order ID</th>
                 <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">User</th>
                 <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">Reason</th>
+                <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">Description</th>
                 <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">Images</th>
                 <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">Status</th>
+                <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">Pickup Date</th>
                 <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">Actions</th>
               </tr>
             </thead>
             <tbody>
               {requests.map((request) => (
                 <tr key={request._id} className="border-b hover:bg-gray-50">
-                  <td className="py-2 px-4 text-sm text-gray-700">
-                    {request.orderId || 'N/A'}
-                  </td>
-                  <td className="py-2 px-4 text-sm text-gray-700">
-                    {request.userId?.email || 'Unknown User'}
-                  </td>
-                  <td className="py-2 px-4 text-sm text-gray-700">
-                    {request.reason || 'No reason provided'}
-                  </td>
+                  <td className="py-2 px-4 text-sm text-gray-700">{request.orderId || 'N/A'}</td>
+                  <td className="py-2 px-4 text-sm text-gray-700">{request.userId?.email || 'Unknown User'}</td>
+                  <td className="py-2 px-4 text-sm text-gray-700">{request.reason || 'No reason provided'}</td>
+                  <td className="py-2 px-4 text-sm text-gray-700">{request.description || 'No description'}</td>
                   <td className="py-2 px-4 text-sm text-gray-700">
                     {request.images && request.images.length > 0 ? (
                       <button
@@ -140,9 +146,7 @@ const ReturnRefund = ({ token }) => {
                       >
                         <Eye className="w-4 h-4 mr-1" /> View
                       </button>
-                    ) : (
-                      'None'
-                    )}
+                    ) : 'None'}
                   </td>
                   <td className="py-2 px-4 text-sm text-gray-700">
                     <select
@@ -156,6 +160,9 @@ const ReturnRefund = ({ token }) => {
                       <option value="Pickup Scheduled">Pickup Scheduled</option>
                       <option value="Refund Initiated">Refund Initiated</option>
                     </select>
+                  </td>
+                  <td className="py-2 px-4 text-sm text-gray-700">
+                    {request.pickupDate ? formatDate(request.pickupDate) : 'N/A'}
                   </td>
                   <td className="py-2 px-4 text-sm">
                     <button
