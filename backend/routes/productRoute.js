@@ -11,8 +11,11 @@ const debugRole = (req, res, next) => {
   next();
 };
 
+// Removed adminAndManagerAuth from /list to make it public
+productRouter.get('/list', listProducts);
+
+// Other routes remain protected
 productRouter.post('/add', adminAndManagerAuth, debugRole, upload.fields([{name:'image1', maxCount:1}, {name:'image2', maxCount:1}, {name:'image3', maxCount:1}, {name:'image4', maxCount:1}]), addProduct);
-productRouter.get('/list', adminAndManagerAuth, debugRole, listProducts);
 productRouter.post('/single', adminAndManagerAuth, debugRole, singleProduct);
 productRouter.post('/remove', adminAndManagerAuth, debugRole, removeProduct);
 productRouter.post('/update', adminAndManagerAuth, debugRole, upload.fields([{name:'image1', maxCount:1}, {name:'image2', maxCount:1}, {name:'image3', maxCount:1}, {name:'image4', maxCount:1}]), updateProduct);
