@@ -21,7 +21,7 @@ userRouter.post('/wishlist/add', authUser, addToWishlist);
 userRouter.post('/wishlist/remove', authUser, removeFromWishlist);
 userRouter.get('/wishlist', authUser, getWishlist);
 userRouter.get('/admin/wishlists', authUser, getAllWishlists);
-userRouter.get('/wishlists/products', adminAndManagerAuth, getWishlistedProducts); // Updated to admin and manager
+userRouter.get('/wishlists/products', adminAndManagerAuth, getWishlistedProducts);
 userRouter.post('/wishlist/add-multiple', authUser, addMultipleToWishlist);
 userRouter.get('/recommendations', authUser, async (req, res) => {
     try {
