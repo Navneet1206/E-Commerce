@@ -13,13 +13,21 @@ const Edit = ({ token }) => {
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('Men');
-  const [subCategory, setSubCategory] = useState('Topwear');
+  const [subCategory, setSubCategory] = useState('');
   const [bestseller, setBestseller] = useState(false);
   const [sizes, setSizes] = useState([]);
   const [sizeStocks, setSizeStocks] = useState({});
+  const [codAvailable, setCodAvailable] = useState(true);
+  const [color, setColor] = useState('');
+  const [weight, setWeight] = useState('');
+  const [dimensions, setDimensions] = useState({ length: '', width: '', height: '' });
+  const [returnable, setReturnable] = useState(true);
+  const [tagsInput, setTagsInput] = useState('');
   const [existingImages, setExistingImages] = useState([]);
   const [newImages, setNewImages] = useState([null, null, null, null]);
   const [loading, setLoading] = useState(true);
+  const [subCategories, setSubCategories] = useState([]);
+  const [colors, setColors] = useState([]);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -37,6 +45,12 @@ const Edit = ({ token }) => {
           setSizes(prod.sizes.map(s => s.size));
           setSizeStocks(prod.sizes.reduce((acc, s) => ({ ...acc, [s.size]: s.stock.toString() }), {}));
           setExistingImages(prod.images);
+          setCodAvailable(prod.codAvailable);
+          setColor(prod.color || '');
+          setWeight(prod.weight ? prod.weight.toString() : '');
+          setDimensions(prod.dimensions || { length: '', width: '', height: '' });
+          setReturnable(prod.returnable);
+          setTagsInput(prod.tags ? prod.tags.join(', ') : '');
         } else {
           toast.error(response.data.message);
         }
@@ -49,6 +63,25 @@ const Edit = ({ token }) => {
     };
     fetchProduct();
   }, [productId, token]);
+
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      try {
+        const subCatResponse = await axios.get(`${backendUrl}api/product/subcategories`);
+        if (subCatResponse.data.success) {
+          setSubCategories(subCatResponse.data.subCategories);
+        }
+        const colorsResponse = await axios.get(`${backendUrl}api/product/colors`);
+        if (colorsResponse.data.success) {
+          setColors(colorsResponse.data.colors);
+        }
+      } catch (error) {
+        console.error(error);
+        toast.error(error.message);
+      }
+    };
+    fetchSuggestions();
+  }, []);
 
   const handleImageRemove = (index) => {
     setExistingImages(prev => prev.filter((_, i) => i !== index));
@@ -88,6 +121,12 @@ const Edit = ({ token }) => {
       formData.append("bestseller", bestseller);
       formData.append("sizes", JSON.stringify(sizesWithStock));
       formData.append("existingImages", JSON.stringify(existingImages));
+      formData.append("codAvailable", codAvailable);
+      formData.append("color", color);
+      formData.append("weight", weight);
+      formData.append("dimensions", JSON.stringify(dimensions));
+      formData.append("returnable", returnable);
+      formData.append("tags", tagsInput);
 
       newImages.forEach((image, index) => {
         if (image) formData.append(`image${index + 1}`, image);
@@ -113,7 +152,6 @@ const Edit = ({ token }) => {
     <form onSubmit={onSubmitHandler} className="flex flex-col w-full items-start gap-4 p-6 bg-white rounded-lg shadow-md">
       <h2 className="text-2xl font-semibold mb-4">Edit Product</h2>
 
-      {/* Image Management */}
       <div className="w-full">
         <p className="mb-2 text-gray-700 font-medium">Existing Images</p>
         <div className="flex flex-wrap gap-4">
@@ -150,13 +188,12 @@ const Edit = ({ token }) => {
         </div>
       </div>
 
-      {/* Product Details */}
       <div className="w-full">
         <p className="mb-2 text-gray-700 font-medium">Product Name</p>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-md"
           type="text"
           placeholder="Type here"
           required
@@ -168,7 +205,7 @@ const Edit = ({ token }) => {
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-md"
           placeholder="Write description here"
           required
         />
@@ -176,11 +213,11 @@ const Edit = ({ token }) => {
 
       <div className="flex flex-col sm:flex-row gap-4 w-full">
         <div className="w-full sm:w-1/4">
-          <p className="mb-2 text-gray-700 font-medium">Product Category</p>
+          <p className="mb-2 text-gray-700 font-medium">Category</p>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded-md"
             required
           >
             <option value="Men">Men</option>
@@ -189,24 +226,42 @@ const Edit = ({ token }) => {
           </select>
         </div>
         <div className="w-full sm:w-1/4">
-          <p className="mb-2 text-gray-700 font-medium">Sub Category</p>
-          <select
+          <p className="mb-2 text-gray-700 font-medium">Sub-Category</p>
+          <input
+            list="subCategories"
             value={subCategory}
             onChange={(e) => setSubCategory(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded-md"
+            placeholder="Enter or select sub-category"
             required
-          >
-            <option value="Topwear">Topwear</option>
-            <option value="Bottomwear">Bottomwear</option>
-            <option value="Winterwear">Winterwear</option>
-          </select>
+          />
+          <datalist id="subCategories">
+            {subCategories.map((subCat, index) => (
+              <option key={index} value={subCat} />
+            ))}
+          </datalist>
         </div>
         <div className="w-full sm:w-1/4">
-          <p className="mb-2 text-gray-700 font-medium">Product Price</p>
+          <p className="mb-2 text-gray-700 font-medium">Color</p>
+          <input
+            list="colors"
+            value={color}
+            onChange={(e) => setColor(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md"
+            placeholder="Enter or select color"
+          />
+          <datalist id="colors">
+            {colors.map((col, index) => (
+              <option key={index} value={col} />
+            ))}
+          </datalist>
+        </div>
+        <div className="w-full sm:w-1/4">
+          <p className="mb-2 text-gray-700 font-medium">Price</p>
           <input
             value={price}
             onChange={(e) => setPrice(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded-md"
             type="number"
             placeholder="25"
             min="0"
@@ -215,14 +270,92 @@ const Edit = ({ token }) => {
         </div>
       </div>
 
-      {/* Sizes and Stock */}
+      <div className="flex flex-col sm:flex-row gap-4 w-full">
+        <div className="w-full sm:w-1/4">
+          <p className="mb-2 text-gray-700 font-medium">Weight (grams)</p>
+          <input
+            type="number"
+            value={weight}
+            onChange={(e) => setWeight(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md"
+            placeholder="Weight in grams"
+            min="0"
+            step="1"
+          />
+        </div>
+        <div className="w-full sm:w-3/4">
+          <p className="mb-2 text-gray-700 font-medium">Dimensions (cm)</p>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              value={dimensions.length}
+              onChange={(e) => setDimensions({ ...dimensions, length: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md"
+              placeholder="Length"
+              min="0"
+              step="0.1"
+            />
+            <input
+              type="number"
+              value={dimensions.width}
+              onChange={(e) => setDimensions({ ...dimensions, width: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md"
+              placeholder="Width"
+              min="0"
+              step="0.1"
+            />
+            <input
+              type="number"
+              value={dimensions.height}
+              onChange={(e) => setDimensions({ ...dimensions, height: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md"
+              placeholder="Height"
+              min="0"
+              step="0.1"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-4">
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={codAvailable}
+            onChange={(e) => setCodAvailable(e.target.checked)}
+            id="codAvailable"
+          />
+          <label htmlFor="codAvailable">COD Available</label>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={returnable}
+            onChange={(e) => setReturnable(e.target.checked)}
+            id="returnable"
+          />
+          <label htmlFor="returnable">Returnable/Refundable</label>
+        </div>
+      </div>
+
       <div className="w-full">
-        <p className="mb-2 text-gray-700 font-medium">Product Sizes</p>
-        <div className="flex gap-3 flex-wrap">
+        <p className="mb-2 text-gray-700 font-medium">Tags (comma-separated)</p>
+        <input
+          type="text"
+          value={tagsInput}
+          onChange={(e) => setTagsInput(e.target.value)}
+          className="w-full px-4 py-2 border border-gray-300 rounded-md"
+          placeholder="Enter tags separated by commas"
+        />
+      </div>
+
+      <div className="w-full">
+        <p className="mb-2 text-gray-700 font-medium">Sizes</p>
+        <div className="flex gap-3">
           {["S", "M", "L", "XL", "XXL"].map((size) => (
             <div
               key={size}
-              onClick={() => setSizes((prev) => prev.includes(size) ? prev.filter(item => item !== size) : [...prev, size])}
+              onClick={() => setSizes((prev) => prev.includes(size) ? prev.filter((item) => item !== size) : [...prev, size])}
               className={`px-4 py-2 rounded-md cursor-pointer ${sizes.includes(size) ? "bg-blue-100 border-blue-500" : "bg-gray-200 border-gray-300"} border`}
             >
               {size}
@@ -259,7 +392,6 @@ const Edit = ({ token }) => {
         <label htmlFor="bestseller" className="text-gray-700 cursor-pointer">Add to Bestseller</label>
       </div>
 
-      {/* Buttons */}
       <div className="flex gap-4 mt-6">
         <button type="submit" className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
           SAVE CHANGES

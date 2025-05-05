@@ -305,6 +305,28 @@ const Product = () => {
           <div className="text-sm text-gray-600 mt-5 flex flex-col gap-1">
             <b className="border px-5 py-3 text-sm text-gray-700 bg-gray-100 rounded-t-md">Description</b>
             <p className="mt-5 text-gray-600">{productData.description}</p>
+            <div className="mt-4 flex flex-col gap-2">
+              {productData.codAvailable !== undefined && (
+                <p><strong>COD Available:</strong> {productData.codAvailable ? "Yes" : "No"}</p>
+              )}
+              {productData.color && (
+                <p><strong>Color:</strong> {productData.color}</p>
+              )}
+              {productData.weight && (
+                <p><strong>Weight:</strong> {productData.weight} grams</p>
+              )}
+              {productData.dimensions && (
+                <p>
+                  <strong>Dimensions:</strong> {productData.dimensions.length}cm (L) x {productData.dimensions.width}cm (W) x {productData.dimensions.height}cm (H)
+                </p>
+              )}
+              {productData.returnable !== undefined && (
+                <p><strong>Returnable:</strong> {productData.returnable ? "Yes" : "No"}</p>
+              )}
+              {productData.tags && productData.tags.length > 0 && (
+                <p><strong>Tags:</strong> {productData.tags.join(", ")}</p>
+              )}
+            </div>
           </div>
         </div>
       </div>

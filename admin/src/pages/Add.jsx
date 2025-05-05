@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { assets } from '../assets/assets';
 import axios from 'axios';
 import { backendUrl } from '../App';
@@ -14,10 +14,37 @@ const Add = ({ token }) => {
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState("Men");
-  const [subCategory, setSubCategory] = useState("Topwear");
+  const [subCategory, setSubCategory] = useState("");
   const [bestseller, setBestseller] = useState(false);
   const [sizes, setSizes] = useState([]);
   const [sizeStocks, setSizeStocks] = useState({});
+  const [codAvailable, setCodAvailable] = useState(true);
+  const [color, setColor] = useState("");
+  const [weight, setWeight] = useState("");
+  const [dimensions, setDimensions] = useState({ length: "", width: "", height: "" });
+  const [returnable, setReturnable] = useState(true);
+  const [tagsInput, setTagsInput] = useState("");
+  const [subCategories, setSubCategories] = useState([]);
+  const [colors, setColors] = useState([]);
+
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      try {
+        const subCatResponse = await axios.get(`${backendUrl}api/product/subcategories`);
+        if (subCatResponse.data.success) {
+          setSubCategories(subCatResponse.data.subCategories);
+        }
+        const colorsResponse = await axios.get(`${backendUrl}api/product/colors`);
+        if (colorsResponse.data.success) {
+          setColors(colorsResponse.data.colors);
+        }
+      } catch (error) {
+        console.error(error);
+        toast.error(error.message);
+      }
+    };
+    fetchSuggestions();
+  }, []);
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
@@ -40,6 +67,12 @@ const Add = ({ token }) => {
       formData.append("subCategory", subCategory);
       formData.append("bestseller", bestseller);
       formData.append("sizes", JSON.stringify(sizesWithStock));
+      formData.append("codAvailable", codAvailable);
+      formData.append("color", color);
+      formData.append("weight", weight);
+      formData.append("dimensions", JSON.stringify(dimensions));
+      formData.append("returnable", returnable);
+      formData.append("tags", tagsInput);
 
       image1 && formData.append("image1", image1);
       image2 && formData.append("image2", image2);
@@ -52,13 +85,21 @@ const Add = ({ token }) => {
         setName('');
         setDescription('');
         setPrice('');
+        setCategory("Men");
+        setSubCategory("");
+        setBestseller(false);
+        setSizes([]);
+        setSizeStocks({});
+        setCodAvailable(true);
+        setColor("");
+        setWeight("");
+        setDimensions({ length: "", width: "", height: "" });
+        setReturnable(true);
+        setTagsInput("");
         setImage1(false);
         setImage2(false);
         setImage3(false);
         setImage4(false);
-        setSizes([]);
-        setSizeStocks({});
-        setBestseller(false);
       } else {
         toast.error(response.data.message);
       }
@@ -75,22 +116,22 @@ const Add = ({ token }) => {
   return (
     <form onSubmit={onSubmitHandler} className="flex flex-col w-full items-start gap-4 p-6 bg-white rounded-lg shadow-md">
       <div className="grid grid-cols-2 gap-6">
-        <label htmlFor="image1" className="flex flex-col items-center">
-          <img className="w-24 h-24 object-cover rounded-md border border-gray-300" src={!image1 ? assets.upload_area : URL.createObjectURL(image1)} alt="Upload 1" />
-          <input onChange={(e) => setImage1(e.target.files[0])} type="file" id="image1" className="mt-2" required />
-        </label>
-        <label htmlFor="image2" className="flex flex-col items-center">
-          <img className="w-24 h-24 object-cover rounded-md border border-gray-300" src={!image2 ? assets.upload_area : URL.createObjectURL(image2)} alt="Upload 2" />
-          <input onChange={(e) => setImage2(e.target.files[0])} type="file" id="image2" className="mt-2" />
-        </label>
-        <label htmlFor="image3" className="flex flex-col items-center">
-          <img className="w-24 h-24 object-cover rounded-md border border-gray-300" src={!image3 ? assets.upload_area : URL.createObjectURL(image3)} alt="Upload 3" />
-          <input onChange={(e) => setImage3(e.target.files[0])} type="file" id="image3" className="mt-2" />
-        </label>
-        <label htmlFor="image4" className="flex flex-col items-center">
-          <img className="w-24 h-24 object-cover rounded-md border border-gray-300" src={!image4 ? assets.upload_area : URL.createObjectURL(image4)} alt="Upload 4" />
-          <input onChange={(e) => setImage4(e.target.files[0])} type="file" id="image4" className="mt-2" />
-        </label>
+        {[setImage1, setImage2, setImage3, setImage4].map((setImage, index) => (
+          <label key={index} htmlFor={`image${index + 1}`} className="flex flex-col items-center">
+            <img
+              className="w-24 h-24 object-cover rounded-md border border-gray-300"
+              src={!eval(`image${index + 1}`) ? assets.upload_area : URL.createObjectURL(eval(`image${index + 1}`))}
+              alt={`Upload ${index + 1}`}
+            />
+            <input
+              onChange={(e) => setImage(e.target.files[0])}
+              type="file"
+              id={`image${index + 1}`}
+              className="mt-2"
+              required={index === 0}
+            />
+          </label>
+        ))}
       </div>
 
       <div className="w-full">
@@ -98,7 +139,7 @@ const Add = ({ token }) => {
         <input
           onChange={(e) => setName(e.target.value)}
           value={name}
-          className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-md"
           type="text"
           placeholder="Type here"
           required
@@ -110,7 +151,7 @@ const Add = ({ token }) => {
         <textarea
           onChange={(e) => setDescription(e.target.value)}
           value={description}
-          className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-md"
           placeholder="Write description here"
           required
         />
@@ -118,11 +159,11 @@ const Add = ({ token }) => {
 
       <div className="flex flex-col sm:flex-row gap-4 w-full">
         <div className="w-full sm:w-1/4">
-          <p className="mb-2 text-gray-700 font-medium">Product Category</p>
+          <p className="mb-2 text-gray-700 font-medium">Category</p>
           <select
             onChange={(e) => setCategory(e.target.value)}
             value={category}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded-md"
             required
           >
             <option value="Men">Men</option>
@@ -131,24 +172,42 @@ const Add = ({ token }) => {
           </select>
         </div>
         <div className="w-full sm:w-1/4">
-          <p className="mb-2 text-gray-700 font-medium">Sub Category</p>
-          <select
-            onChange={(e) => setSubCategory(e.target.value)}
+          <p className="mb-2 text-gray-700 font-medium">Sub-Category</p>
+          <input
+            list="subCategories"
             value={subCategory}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={(e) => setSubCategory(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md"
+            placeholder="Enter or select sub-category"
             required
-          >
-            <option value="Topwear">Topwear</option>
-            <option value="Bottomwear">Bottomwear</option>
-            <option value="Winterwear">Winterwear</option>
-          </select>
+          />
+          <datalist id="subCategories">
+            {subCategories.map((subCat, index) => (
+              <option key={index} value={subCat} />
+            ))}
+          </datalist>
         </div>
         <div className="w-full sm:w-1/4">
-          <p className="mb-2 text-gray-700 font-medium">Product Price</p>
+          <p className="mb-2 text-gray-700 font-medium">Color</p>
+          <input
+            list="colors"
+            value={color}
+            onChange={(e) => setColor(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md"
+            placeholder="Enter or select color"
+          />
+          <datalist id="colors">
+            {colors.map((col, index) => (
+              <option key={index} value={col} />
+            ))}
+          </datalist>
+        </div>
+        <div className="w-full sm:w-1/4">
+          <p className="mb-2 text-gray-700 font-medium">Price</p>
           <input
             onChange={(e) => setPrice(e.target.value)}
             value={price}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded-md"
             type="number"
             placeholder="25"
             min="0"
@@ -157,8 +216,87 @@ const Add = ({ token }) => {
         </div>
       </div>
 
+      <div className="flex flex-col sm:flex-row gap-4 w-full">
+        <div className="w-full sm:w-1/4">
+          <p className="mb-2 text-gray-700 font-medium">Weight (grams)</p>
+          <input
+            type="number"
+            value={weight}
+            onChange={(e) => setWeight(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md"
+            placeholder="Weight in grams"
+            min="0"
+            step="1"
+          />
+        </div>
+        <div className="w-full sm:w-3/4">
+          <p className="mb-2 text-gray-700 font-medium">Dimensions (cm)</p>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              value={dimensions.length}
+              onChange={(e) => setDimensions({ ...dimensions, length: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md"
+              placeholder="Length"
+              min="0"
+              step="0.1"
+            />
+            <input
+              type="number"
+              value={dimensions.width}
+              onChange={(e) => setDimensions({ ...dimensions, width: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md"
+              placeholder="Width"
+              min="0"
+              step="0.1"
+            />
+            <input
+              type="number"
+              value={dimensions.height}
+              onChange={(e) => setDimensions({ ...dimensions, height: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md"
+              placeholder="Height"
+              min="0"
+              step="0.1"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-4">
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={codAvailable}
+            onChange={(e) => setCodAvailable(e.target.checked)}
+            id="codAvailable"
+          />
+          <label htmlFor="codAvailable">COD Available</label>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={returnable}
+            onChange={(e) => setReturnable(e.target.checked)}
+            id="returnable"
+          />
+          <label htmlFor="returnable">Returnable/Refundable</label>
+        </div>
+      </div>
+
       <div className="w-full">
-        <p className="mb-2 text-gray-700 font-medium">Product Sizes</p>
+        <p className="mb-2 text-gray-700 font-medium">Tags (comma-separated)</p>
+        <input
+          type="text"
+          value={tagsInput}
+          onChange={(e) => setTagsInput(e.target.value)}
+          className="w-full px-4 py-2 border border-gray-300 rounded-md"
+          placeholder="Enter tags separated by commas"
+        />
+      </div>
+
+      <div className="w-full">
+        <p className="mb-2 text-gray-700 font-medium">Sizes</p>
         <div className="flex gap-3">
           {["S", "M", "L", "XL", "XXL"].map((size) => (
             <div
