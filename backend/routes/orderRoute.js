@@ -1,6 +1,6 @@
 import express from 'express';
 import { placeOrder, placeOrderRazorpay, verifyPayment, allOrders, updateStatus, userOrders, getOrderById, generateInvoice, confirmPayment, validateCouponEndpoint, requestReturnRefund } from '../controllers/orderController.js';
-import adminAuth from '../middleware/adminAuth.js';
+import { adminAndLogisticsAuth } from '../middleware/roleAuth.js';
 import authUser from '../middleware/auth.js';
 import upload from '../middleware/multer.js';
 
@@ -10,9 +10,9 @@ orderRouter.post('/place', authUser, placeOrder);
 orderRouter.post('/razorpay', authUser, placeOrderRazorpay);
 orderRouter.post('/verify', verifyPayment);
 orderRouter.post('/validate-coupon', authUser, validateCouponEndpoint);
-orderRouter.get('/all-orders', adminAuth, allOrders);
+orderRouter.get('/all-orders', adminAndLogisticsAuth, allOrders); // Updated to allow admin and logistics
 orderRouter.post('/user-orders', authUser, userOrders);
-orderRouter.post('/status', adminAuth, updateStatus);
+orderRouter.post('/status', adminAndLogisticsAuth, updateStatus); // Updated to allow admin and logistics
 orderRouter.get('/:id', authUser, getOrderById);
 orderRouter.get('/invoice/:orderId', authUser, generateInvoice);
 orderRouter.post('/confirm-payment', authUser, confirmPayment);

@@ -1,7 +1,7 @@
 import express from 'express';
 import { loginUser, registerUser, adminLogin, sendOtp, sendResetCode, resetPassword, mergeCart, addAddress, updateAddress, deleteAddress, getAddresses, addToWishlist, removeFromWishlist, getWishlist, getAllWishlists, getWishlistedProducts, addMultipleToWishlist, createSubAdmin, listSubAdmins } from '../controllers/userController.js';
 import authUser from '../middleware/auth.js';
-import { adminOnlyAuth, subAdminAuth } from '../middleware/roleAuth.js';
+import { adminAndManagerAuth, adminOnlyAuth } from '../middleware/roleAuth.js';
 import { getRecommendations } from '../controllers/recommendation.js';
 
 const userRouter = express.Router();
@@ -21,7 +21,7 @@ userRouter.post('/wishlist/add', authUser, addToWishlist);
 userRouter.post('/wishlist/remove', authUser, removeFromWishlist);
 userRouter.get('/wishlist', authUser, getWishlist);
 userRouter.get('/admin/wishlists', authUser, getAllWishlists);
-userRouter.get('/wishlists/products', adminOnlyAuth, getWishlistedProducts);
+userRouter.get('/wishlists/products', adminAndManagerAuth, getWishlistedProducts); // Updated to admin and manager
 userRouter.post('/wishlist/add-multiple', authUser, addMultipleToWishlist);
 userRouter.get('/recommendations', authUser, async (req, res) => {
     try {
@@ -31,7 +31,7 @@ userRouter.get('/recommendations', authUser, async (req, res) => {
       res.json({ success: false, message: error.message });
     }
 });
-userRouter.post('/create-subadmin', subAdminAuth, createSubAdmin);
-userRouter.get('/list-subadmins', subAdminAuth, listSubAdmins);
+userRouter.post('/create-subadmin', adminOnlyAuth, createSubAdmin); // Updated to admin only
+userRouter.get('/list-subadmins', adminOnlyAuth, listSubAdmins); // Updated to admin only
 
 export default userRouter;
