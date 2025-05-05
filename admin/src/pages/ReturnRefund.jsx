@@ -8,23 +8,41 @@ const ReturnRefund = ({ token }) => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedImages, setSelectedImages] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchRequests = async () => {
+      if (!token) {
+        setError('No authentication token provided');
+        setLoading(false);
+        return;
+      }
+      
       try {
-        const response = await axios.get(`${backendUrl}api/return-refund/all`, { headers: { token } });
+        const response = await axios.get(`${backendUrl}api/return-refund/all`, { 
+          headers: { token },
+          timeout: 5000
+        });
+        
         if (response.data.success) {
-          setRequests(response.data.requests);
+          const validRequests = response.data.requests.filter(req => 
+            req.userId && typeof req.userId === 'object' && req.userId.email
+          );
+          setRequests(validRequests);
         } else {
-          toast.error(response.data.message);
+          setError(response.data.message || 'Failed to fetch requests');
+          toast.error(response.data.message || 'Failed to fetch requests');
         }
       } catch (error) {
-        toast.error(error.response?.data?.message || "Error fetching requests");
+        const errorMessage = error.response?.data?.message || error.message || 'Error fetching requests';
+        setError(errorMessage);
+        toast.error(errorMessage);
       } finally {
         setLoading(false);
       }
     };
-    if (token) fetchRequests();
+    
+    fetchRequests();
   }, [token]);
 
   const updateStatus = async (requestId, status) => {
@@ -36,12 +54,12 @@ const ReturnRefund = ({ token }) => {
       );
       if (response.data.success) {
         setRequests(requests.map(req => req._id === requestId ? { ...req, status } : req));
-        toast.success("Status updated successfully");
+        toast.success('Status updated successfully');
       } else {
         toast.error(response.data.message);
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || "Error updating status");
+      toast.error(error.response?.data?.message || 'Error updating status');
     }
   };
 
@@ -50,80 +68,108 @@ const ReturnRefund = ({ token }) => {
       const response = await axios.delete(`${backendUrl}api/return-refund/${requestId}`, { headers: { token } });
       if (response.data.success) {
         setRequests(requests.filter(req => req._id !== requestId));
-        toast.success("Request deleted successfully");
+        toast.success('Request deleted successfully');
       } else {
         toast.error(response.data.message);
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || "Error deleting request");
+      toast.error(error.response?.data?.message || 'Error deleting request');
     }
   };
 
-  if (loading) return <div className="text-center py-10">Loading...</div>;
+  if (error) {
+    return (
+      <div className="p-6 bg-white rounded-lg shadow-md text-center">
+        <h2 className="text-2xl font-semibold mb-4">Return/Refund Requests</h2>
+        <p className="text-red-500">{error}</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6 bg-white rounded-lg shadow-md text-center">
+        <h2 className="text-2xl font-semibold mb-4">Return/Refund Requests</h2>
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 bg-white rounded-lg shadow-md">
       <h2 className="text-2xl font-semibold mb-6">Return/Refund Requests</h2>
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white border border-gray-300 rounded-lg">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">Order ID</th>
-              <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">User</th>
-              <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">Reason</th>
-              <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">Images</th>
-              <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">Status</th>
-              <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {requests.map((request) => (
-              <tr key={request._id} className="border-b hover:bg-gray-50">
-                <td className="py-2 px-4 text-sm text-gray-700">{request.orderId}</td>
-                <td className="py-2 px-4 text-sm text-gray-700">{request.userId.email}</td>
-                <td className="py-2 px-4 text-sm text-gray-700">{request.reason}</td>
-                <td className="py-2 px-4 text-sm text-gray-700">
-                  {request.images.length > 0 ? (
-                    <button
-                      onClick={() => setSelectedImages(request.images)}
-                      className="text-blue-500 hover:text-blue-700 flex items-center"
-                    >
-                      <Eye className="w-4 h-4 mr-1" /> View
-                    </button>
-                  ) : 'None'}
-                </td>
-                <td className="py-2 px-4 text-sm text-gray-700">
-                  <select
-                    value={request.status}
-                    onChange={(e) => updateStatus(request._id, e.target.value)}
-                    className="p-1 border border-gray-300 rounded-md"
-                  >
-                    <option value="Pending">Pending</option>
-                    <option value="Approved">Approved</option>
-                    <option value="Rejected">Rejected</option>
-                    <option value="Pickup Scheduled">Pickup Scheduled</option>
-                    <option value="Refund Initiated">Refund Initiated</option>
-                  </select>
-                </td>
-                <td className="py-2 px-4 text-sm">
-                  <button
-                    onClick={() => deleteRequest(request._id)}
-                    className="text-red-500 hover:text-red-700 flex items-center"
-                  >
-                    <Trash2 className="w-4 h-4 mr-1" /> Delete
-                  </button>
-                </td>
+      {requests.length === 0 ? (
+        <p className="text-gray-500 text-center">No return/refund requests found.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-white border border-gray-300 rounded-lg">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">Order ID</th>
+                <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">User</th>
+                <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">Reason</th>
+                <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">Images</th>
+                <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">Status</th>
+                <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {requests.map((request) => (
+                <tr key={request._id} className="border-b hover:bg-gray-50">
+                  <td className="py-2 px-4 text-sm text-gray-700">
+                    {request.orderId || 'N/A'}
+                  </td>
+                  <td className="py-2 px-4 text-sm text-gray-700">
+                    {request.userId?.email || 'Unknown User'}
+                  </td>
+                  <td className="py-2 px-4 text-sm text-gray-700">
+                    {request.reason || 'No reason provided'}
+                  </td>
+                  <td className="py-2 px-4 text-sm text-gray-700">
+                    {request.images && request.images.length > 0 ? (
+                      <button
+                        onClick={() => setSelectedImages(request.images)}
+                        className="text-blue-500 hover:text-blue-700 flex items-center"
+                      >
+                        <Eye className="w-4 h-4 mr-1" /> View
+                      </button>
+                    ) : (
+                      'None'
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-sm text-gray-700">
+                    <select
+                      value={request.status || 'Pending'}
+                      onChange={(e) => updateStatus(request._id, e.target.value)}
+                      className="p-1 border border-gray-300 rounded-md"
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="Approved">Approved</option>
+                      <option value="Rejected">Rejected</option>
+                      <option value="Pickup Scheduled">Pickup Scheduled</option>
+                      <option value="Refund Initiated">Refund Initiated</option>
+                    </select>
+                  </td>
+                  <td className="py-2 px-4 text-sm">
+                    <button
+                      onClick={() => deleteRequest(request._id)}
+                      className="text-red-500 hover:text-red-700 flex items-center"
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" /> Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {selectedImages && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
           <div className="bg-white p-4 rounded-lg max-w-3xl w-full">
             <h3 className="text-lg font-semibold mb-4">Uploaded Images</h3>
-            <div className="flex gap-4">
+            <div className="flex gap-4 overflow-x-auto">
               {selectedImages.map((img, index) => (
                 <a href={img} target="_blank" rel="noopener noreferrer" key={index}>
                   <img

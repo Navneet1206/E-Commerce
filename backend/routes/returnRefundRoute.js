@@ -1,13 +1,13 @@
 import express from 'express';
 import ReturnRefund from '../models/returnRefundModel.js';
-import adminAuth from '../middleware/adminAuth.js';
+import { adminAndLogisticsAuth } from '../middleware/roleAuth.js'; // Updated to use adminAndLogisticsAuth
 import authUser from '../middleware/auth.js';
 import userModel from '../models/userModel.js';
 
 const returnRefundRouter = express.Router();
 
-// Get all return/refund requests (Admin only)
-returnRefundRouter.get('/all', adminAuth, async (req, res) => {
+// Get all return/refund requests (Admin and Logistics)
+returnRefundRouter.get('/all', adminAndLogisticsAuth, async (req, res) => {
   try {
     const requests = await ReturnRefund.find({}).populate('userId', 'email');
     res.json({ success: true, requests });
@@ -30,8 +30,8 @@ returnRefundRouter.get('/order/:orderId', authUser, async (req, res) => {
   }
 });
 
-// Update return/refund status (Admin only)
-returnRefundRouter.post('/update-status', adminAuth, async (req, res) => {
+// Update return/refund status (Admin and Logistics)
+returnRefundRouter.post('/update-status', adminAndLogisticsAuth, async (req, res) => {
   try {
     const { requestId, status } = req.body;
     if (!requestId || !status) return res.status(400).json({ success: false, message: "Request ID and status are required" });
@@ -45,8 +45,8 @@ returnRefundRouter.post('/update-status', adminAuth, async (req, res) => {
   }
 });
 
-// Delete return/refund request (Admin only)
-returnRefundRouter.delete('/:id', adminAuth, async (req, res) => {
+// Delete return/refund request (Admin and Logistics)
+returnRefundRouter.delete('/:id', adminAndLogisticsAuth, async (req, res) => {
   try {
     const request = await ReturnRefund.findByIdAndDelete(req.params.id);
     if (!request) return res.status(404).json({ success: false, message: "Request not found" });
