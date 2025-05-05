@@ -9,6 +9,8 @@ const Orders = ({ token }) => {
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [statusFilter, setStatusFilter] = useState('Order Placed');
   const [loading, setLoading] = useState(true);
+  const [datePickerOrderId, setDatePickerOrderId] = useState(null);
+  const [selectedDate, setSelectedDate] = useState('');
 
   const orderStatusOptions = [
     'All',
@@ -30,7 +32,6 @@ const Orders = ({ token }) => {
       );
       if (response.data.success) {
         setOrders(response.data.orders);
-        // Apply default filter (Order Placed)
         handleFilterChange('Order Placed');
       } else {
         toast.error(response.data.message);
@@ -52,20 +53,26 @@ const Orders = ({ token }) => {
   };
 
   const statusHandler = async (event, orderId) => {
-    try {
-      const response = await axios.post(
-        `${backendUrl}api/order/status`,
-        { orderId, status: event.target.value },
-        { headers: { token } }
-      );
-      if (response.data.success) {
-        toast.success('Order status updated');
-        await fetchAllOrders();
-      } else {
-        toast.error(response.data.message);
+    const newStatus = event.target.value;
+    if (newStatus === 'Packing') {
+      setDatePickerOrderId(orderId);
+      setSelectedDate('');
+    } else {
+      try {
+        const response = await axios.post(
+          `${backendUrl}api/order/status`,
+          { orderId, status: newStatus },
+          { headers: { token } }
+        );
+        if (response.data.success) {
+          toast.success('Order status updated');
+          await fetchAllOrders();
+        } else {
+          toast.error(response.data.message);
+        }
+      } catch (error) {
+        toast.error(error.response?.data?.message || 'Failed to update status');
       }
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to update status');
     }
   };
 
@@ -126,8 +133,6 @@ const Orders = ({ token }) => {
     <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
         <h3 className="text-2xl font-bold text-gray-800 mb-4 sm:mb-0">Orders Management</h3>
-        
-        {/* Status Filter */}
         <div className="w-full sm:w-auto">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium text-gray-700">Filter by Status:</span>
@@ -182,7 +187,6 @@ const Orders = ({ token }) => {
               </div>
 
               <div className="p-4 grid grid-cols-1 lg:grid-cols-5 gap-4">
-                {/* Order Items */}
                 <div className="lg:col-span-2">
                   <h4 className="text-sm font-semibold text-gray-700 mb-2">Order Items</h4>
                   <div className="bg-gray-50 p-3 rounded-md max-h-32 overflow-y-auto">
@@ -199,7 +203,6 @@ const Orders = ({ token }) => {
                   </div>
                 </div>
 
-                {/* Customer Info */}
                 <div className="lg:col-span-1">
                   <h4 className="text-sm font-semibold text-gray-700 mb-2">Customer</h4>
                   <div className="text-sm">
@@ -209,7 +212,6 @@ const Orders = ({ token }) => {
                   </div>
                 </div>
 
-                {/* Order Details */}
                 <div className="lg:col-span-1">
                   <h4 className="text-sm font-semibold text-gray-700 mb-2">Details</h4>
                   <div className="text-sm space-y-1">
@@ -232,7 +234,6 @@ const Orders = ({ token }) => {
                   </div>
                 </div>
 
-                {/* Actions */}
                 <div className="lg:col-span-1">
                   <h4 className="text-sm font-semibold text-gray-700 mb-2">Actions</h4>
                   <div className="flex flex-col gap-2">
@@ -245,7 +246,6 @@ const Orders = ({ token }) => {
                         <option key={status} value={status}>{status}</option>
                       ))}
                     </select>
-                    
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
                       {order.paymentMethod === 'COD' && !order.payment && (
                         <button
@@ -286,6 +286,56 @@ const Orders = ({ token }) => {
           >
             View all orders
           </button>
+        </div>
+      )}
+
+      {datePickerOrderId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl">
+            <h3 className="text-lg font-semibold mb-4">Select Expected Delivery Date</h3>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              min={new Date().toISOString().split('T')[0]}
+              className="border p-2 rounded-md w-full mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDatePickerOrderId(null)}
+                className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!selectedDate) {
+                    toast.error('Please select a date');
+                    return;
+                  }
+                  try {
+                    const response = await axios.post(
+                      `${backendUrl}api/order/status`,
+                      { orderId: datePickerOrderId, status: 'Packing', deliveryDate: selectedDate },
+                      { headers: { token } }
+                    );
+                    if (response.data.success) {
+                      toast.success('Order status updated');
+                      await fetchAllOrders();
+                      setDatePickerOrderId(null);
+                    } else {
+                      toast.error(response.data.message);
+                    }
+                  } catch (error) {
+                    toast.error(error.response?.data?.message || 'Failed to update status');
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

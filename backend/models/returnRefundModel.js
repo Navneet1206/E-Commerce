@@ -10,6 +10,7 @@ const returnRefundSchema = new mongoose.Schema({
     enum: ['Pending', 'Approved', 'Rejected', 'Pickup Scheduled', 'Refund Initiated'], 
     default: 'Pending' 
   },
+  pickupDate: { type: Date },
   createdAt: { type: Date, default: Date.now },
 });
 

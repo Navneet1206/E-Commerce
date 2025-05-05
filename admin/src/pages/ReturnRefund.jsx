@@ -9,6 +9,8 @@ const ReturnRefund = ({ token }) => {
   const [loading, setLoading] = useState(true);
   const [selectedImages, setSelectedImages] = useState(null);
   const [error, setError] = useState(null);
+  const [datePickerRequestId, setDatePickerRequestId] = useState(null);
+  const [selectedDate, setSelectedDate] = useState('');
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -46,20 +48,25 @@ const ReturnRefund = ({ token }) => {
   }, [token]);
 
   const updateStatus = async (requestId, status) => {
-    try {
-      const response = await axios.post(
-        `${backendUrl}api/return-refund/update-status`,
-        { requestId, status },
-        { headers: { token } }
-      );
-      if (response.data.success) {
-        setRequests(requests.map(req => req._id === requestId ? { ...req, status } : req));
-        toast.success('Status updated successfully');
-      } else {
-        toast.error(response.data.message);
+    if (status === 'Pickup Scheduled') {
+      setDatePickerRequestId(requestId);
+      setSelectedDate('');
+    } else {
+      try {
+        const response = await axios.post(
+          `${backendUrl}api/return-refund/update-status`,
+          { requestId, status },
+          { headers: { token } }
+        );
+        if (response.data.success) {
+          setRequests(requests.map(req => req._id === requestId ? { ...req, status } : req));
+          toast.success('Status updated successfully');
+        } else {
+          toast.error(response.data.message);
+        }
+      } catch (error) {
+        toast.error(error.response?.data?.message || 'Error updating status');
       }
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Error updating status');
     }
   };
 
@@ -186,6 +193,56 @@ const ReturnRefund = ({ token }) => {
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {datePickerRequestId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl">
+            <h3 className="text-lg font-semibold mb-4">Select Pickup Date</h3>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              min={new Date().toISOString().split('T')[0]}
+              className="border p-2 rounded-md w-full mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDatePickerRequestId(null)}
+                className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!selectedDate) {
+                    toast.error('Please select a date');
+                    return;
+                  }
+                  try {
+                    const response = await axios.post(
+                      `${backendUrl}api/return-refund/update-status`,
+                      { requestId: datePickerRequestId, status: 'Pickup Scheduled', pickupDate: selectedDate },
+                      { headers: { token } }
+                    );
+                    if (response.data.success) {
+                      setRequests(requests.map(req => req._id === datePickerRequestId ? { ...req, status: 'Pickup Scheduled', pickupDate: selectedDate } : req));
+                      toast.success('Status updated successfully');
+                      setDatePickerRequestId(null);
+                    } else {
+                      toast.error(response.data.message);
+                    }
+                  } catch (error) {
+                    toast.error(error.response?.data?.message || 'Error updating status');
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Confirm
+              </button>
+            </div>
           </div>
         </div>
       )}

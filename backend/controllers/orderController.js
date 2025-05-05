@@ -347,11 +347,17 @@ const userOrders = async (req, res) => {
 
 const updateStatus = async (req, res) => {
   try {
-    const { orderId, status } = req.body;
+    const { orderId, status, deliveryDate } = req.body;
     if (!orderId || !status) {
       return res.status(400).json({ success: false, message: "Order ID and status are required" });
     }
-    const order = await orderModel.findByIdAndUpdate(orderId, { status }, { new: true });
+
+    const updateData = { status };
+    if (deliveryDate) {
+      updateData.deliveryDate = deliveryDate;
+    }
+
+    const order = await orderModel.findByIdAndUpdate(orderId, updateData, { new: true });
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
@@ -365,7 +371,6 @@ const updateStatus = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 const getOrderById = async (req, res) => {
   try {
     const { id } = req.params;
