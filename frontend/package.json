@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "axios": "^1.7.9",
-    "framer-motion": "^12.9.4",
+    "framer-motion": "^12.10.5",
     "lucide-react": "^0.503.0",
     "razorpay": "^2.9.6",
     "react": "^18.3.1",
